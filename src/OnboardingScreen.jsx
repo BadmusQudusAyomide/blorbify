@@ -5,6 +5,8 @@ import BusinessInfo from './BusinessInfo';
 import TemplateSelect from './TemplateSelect';
 import LaunchStore from './LaunchStore';
 import { IconBriefcase, IconPalette, IconRocket, IconSparkles } from './onboardingIcons';
+import { createStoreSlug, getStoreUrl } from './storeLinks';
+import { buildPublicStorePayload } from './publicStore';
 
 class OnboardingErrorBoundary extends React.Component {
   constructor(props) {
@@ -72,15 +74,6 @@ function getInitialFormData(profile) {
   };
 }
 
-function createStoreSlug(businessName) {
-  return (
-    (businessName || 'my-store')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '') || 'my-store'
-  );
-}
-
 function sanitizeOnboardingData(data) {
   const sanitized = { ...defaultFormData, ...(data || {}) };
   delete sanitized.products;
@@ -146,10 +139,12 @@ export default function OnboardingScreen({ userId, userProfile, onComplete }) {
     setSaveError('');
     try {
       const slug = createStoreSlug(formData.businessName);
+      const storeUrl = getStoreUrl(slug);
 
       const finalData = {
         ...sanitizeOnboardingData(formData),
         storeSlug: slug,
+        storeUrl,
         onboardingCompleted: true,
         updatedAt: serverTimestamp(),
       };
@@ -158,6 +153,11 @@ export default function OnboardingScreen({ userId, userProfile, onComplete }) {
         ...finalData,
         userId,
         createdAt: serverTimestamp(),
+      }, { merge: true });
+
+      await setDoc(doc(db, 'publicStores', slug), {
+        ...buildPublicStorePayload(finalData, userId),
+        updatedAt: serverTimestamp(),
       }, { merge: true });
 
       await setDoc(doc(db, 'users', userId), {
@@ -173,6 +173,7 @@ export default function OnboardingScreen({ userId, userProfile, onComplete }) {
         template: formData.template || 'minimal',
         primaryColor: formData.primaryColor || '#AFFF00',
         storeSlug: slug,
+        storeUrl,
         updatedAt: serverTimestamp(),
       }, { merge: true });
 

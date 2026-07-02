@@ -90,7 +90,7 @@ const Toast = ({ message, type, onClose }) => {
   );
 };
 
-export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }) {
+export default function AuthScreen({ initialMode = 'login', onSuccess }) {
   const [isLogin, setIsLogin] = useState(initialMode === 'login');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -161,8 +161,7 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
         addToast('Account created! Welcome to Blorbify.', 'success');
       }
 
-      onSuccess?.();
-      onClose?.();
+      await onSuccess?.(auth.currentUser);
     } catch (error) {
       const message = error?.message || 'Authentication failed. Please try again.';
       addToast(message.replace('Firebase: ', ''), 'error');

@@ -5,6 +5,7 @@ import { auth, db } from "./firebase.js";
 import AuthScreen from "./AuthScreen.jsx";
 import OnboardingScreen from "./OnboardingScreen.jsx";
 import Dashboard from "./Dashboard.jsx";
+import Storefront from "./Storefront.jsx";
 
 /* ============================================================
    BLORBIFY — Landing Page
@@ -179,6 +180,15 @@ const Eyebrow = ({ children }) => <span className="eyebrow">{children}</span>;
 
 /* ============================================================ */
 
+const reservedPublicPaths = new Set(["auth", "dashboard", "onboarding", "admin"]);
+
+function getPublicStoreSlugFromLocation() {
+  if (typeof window === "undefined") return "";
+
+  const slug = decodeURIComponent(window.location.pathname.replace(/^\/+|\/+$/g, "").split("/")[0] || "");
+  return slug && !reservedPublicPaths.has(slug.toLowerCase()) ? slug : "";
+}
+
 export default function App() {
   const [navOpen, setNavOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -203,6 +213,20 @@ export default function App() {
     };
   }, []);
 
+  const loadUserProfile = useCallback(async (user) => {
+    try {
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+      const profile = userSnap.exists() ? userSnap.data() : {};
+      setUserProfile(profile);
+      setAppView(profile?.onboardingCompleted ? "dashboard" : "onboarding");
+    } catch (error) {
+      console.error("Failed to load user profile:", error);
+      setUserProfile(null);
+      setAppView("onboarding");
+    }
+  }, []);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setAuthLoading(true);
@@ -215,22 +239,14 @@ export default function App() {
       }
 
       try {
-        const userRef = doc(db, "users", user.uid);
-        const userSnap = await getDoc(userRef);
-        const profile = userSnap.exists() ? userSnap.data() : {};
-        setUserProfile(profile);
-        setAppView(profile?.onboardingCompleted ? "dashboard" : "onboarding");
-      } catch (error) {
-        console.error("Failed to load user profile:", error);
-        setUserProfile(null);
-        setAppView("onboarding");
+        await loadUserProfile(user);
       } finally {
         setAuthLoading(false);
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [loadUserProfile]);
 
   const scrollTo = useCallback((id) => (e) => {
     e.preventDefault();
@@ -245,22 +261,24 @@ export default function App() {
     setNavOpen(false);
   }, []);
 
-  const closeAuth = useCallback(() => {
-    setShowAuth(false);
-    if (!currentUser) {
-      setAppView("landing");
-    }
-  }, [currentUser]);
-
   const handleNewsletterSubmit = useCallback((event) => {
     event.preventDefault();
     setNewsletterMessage("You're on the list. We'll send practical selling tips soon.");
     setNewsletterEmail("");
   }, []);
 
-  const handleAuthSuccess = useCallback(() => {
+  const handleAuthSuccess = useCallback(async (user = auth.currentUser) => {
     setShowAuth(false);
-  }, []);
+    if (!user) return;
+
+    setAuthLoading(true);
+    setCurrentUser(user);
+    try {
+      await loadUserProfile(user);
+    } finally {
+      setAuthLoading(false);
+    }
+  }, [loadUserProfile]);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -366,6 +384,12 @@ export default function App() {
     { q: "Can I cancel if it\u2019s not for me?", a: "Yes \u2014 every plan is month-to-month. No lock-in." },
   ];
 
+  const publicStoreSlug = getPublicStoreSlugFromLocation();
+
+  if (publicStoreSlug) {
+    return <Storefront slug={publicStoreSlug} />;
+  }
+
   if (authLoading) {
     return (
       <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#0F1518", color: "#F6F8F1", fontFamily: "Raleway, sans-serif" }}>
@@ -403,7 +427,6 @@ export default function App() {
     return (
       <AuthScreen
         initialMode={authMode}
-        onClose={closeAuth}
         onSuccess={handleAuthSuccess}
       />
     );
@@ -493,9 +516,9 @@ export default function App() {
         .nav-inner{ display:flex; align-items:center; justify-content:space-between; }
         .logo{ display:flex; align-items:center; gap:9px; font-weight:800; font-size:21px; color:var(--paper); letter-spacing:-0.02em; }
         .logo-dot{ width:10px; height:10px; border-radius:3px; background:var(--signal); box-shadow:0 0 14px rgba(175,255,0,0.7); }
-        .logo-sub{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--slate); letter-spacing:0.1em; margin-left:2px; }
+        .logo-sub{ font-family:'JetBrains Mono',monospace; font-size:10px; color:#D7E0E2; letter-spacing:0.1em; margin-left:2px; }
         .nav-links{ display:flex; gap:32px; align-items:center; }
-        .nav-links a{ color:var(--paper); opacity:0.8; text-decoration:none; font-size:14.5px; font-weight:500; transition:opacity .2s; }
+        .nav-links a{ color:var(--paper); opacity:0.94; text-decoration:none; font-size:14.5px; font-weight:600; transition:opacity .2s; }
         .nav-links a:hover{ opacity:1; }
         .nav-cta{
           background:var(--signal); color:var(--ink); border:none; padding:11px 20px; border-radius:100px;
@@ -533,7 +556,7 @@ export default function App() {
           color:var(--paper); font-size:56px; line-height:1.04; font-weight:800; letter-spacing:-0.03em;
         }
         .hero h1 em{ font-style:normal; color:var(--signal); }
-        .hero-sub{ color:#D7E0E2; font-size:18px; line-height:1.6; margin-top:22px; max-width:480px; font-weight:400; }
+        .hero-sub{ color:#E6EEF0; font-size:18px; line-height:1.6; margin-top:22px; max-width:480px; font-weight:500; }
         .hero-cta-row{ display:flex; align-items:center; gap:18px; margin-top:34px; flex-wrap:wrap; }
         .btn-primary{
           background:var(--signal); color:var(--ink); border:none; padding:17px 26px; border-radius:100px;
@@ -544,18 +567,18 @@ export default function App() {
         .btn-primary:hover{ transform:translateY(-3px) scale(1.015); box-shadow:0 16px 32px rgba(175,255,0,0.3); }
         .btn-primary svg{ transition:transform .25s ease; }
         .btn-primary:hover svg{ transform:translateX(4px); }
-        .hero-micro{ color:#C3CED1; font-size:13px; font-family:'JetBrains Mono',monospace; }
+        .hero-micro{ color:#E6EEF0; font-size:13px; font-family:'JetBrains Mono',monospace; }
         .hero-stats{ display:flex; gap:28px; margin-top:52px; flex-wrap:wrap; }
         .hero-stat{ font-family:'JetBrains Mono',monospace; }
         .hero-stat b{ display:block; color:var(--signal); font-size:15px; font-weight:700; }
-        .hero-stat span{ color:#C3CED1; font-size:11.5px; letter-spacing:0.06em; text-transform:uppercase; }
+        .hero-stat span{ color:#E6EEF0; font-size:11.5px; letter-spacing:0.06em; text-transform:uppercase; }
 
         /* hero visual: chaos -> order */
         .hero-visual{ position:relative; height:460px; }
         .chaos-zone, .order-zone{ position:absolute; top:0; bottom:0; width:100%; }
         .bubble{
           position:absolute; background:var(--ink-soft); border:1px solid var(--line);
-          border-radius:16px; padding:10px 14px; font-size:12.5px; color:#D7E0E2;
+          border-radius:16px; padding:10px 14px; font-size:12.5px; color:#F6F8F1;
           box-shadow:0 14px 30px rgba(0,0,0,0.35);
           opacity:0; transform:translateY(18px) rotate(var(--r,0deg));
           transition:opacity .6s ease, transform .6s cubic-bezier(.2,.8,.2,1);
@@ -598,14 +621,14 @@ export default function App() {
         }
         .pain-card:hover{ transform:translateY(-4px); box-shadow:0 18px 36px rgba(25,35,40,0.16); }
         .pain-ic{ width:40px; height:40px; border-radius:11px; background:rgba(175,255,0,0.12); display:flex; align-items:center; justify-content:center; color:var(--signal); flex-shrink:0; }
-        .pain-card p{ color:var(--paper); font-size:14.5px; line-height:1.55; opacity:0.88; }
+        .pain-card p{ color:#FFFFFF; font-size:14.5px; line-height:1.55; opacity:1; }
         .problem-close{ margin-top:40px; font-size:18px; font-style:normal; font-weight:600; color:var(--ink); border-left:3px solid var(--signal); padding-left:18px; max-width:640px; }
 
         /* ---------- SOLUTION ---------- */
         .solution{ background:var(--ink); padding:110px 0; position:relative; }
         .solution-inner{ display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:center; }
         .solution h2{ color:var(--paper); font-size:36px; line-height:1.16; margin-top:16px; font-weight:800; }
-        .solution p{ color:#D7E0E2; font-size:16.5px; line-height:1.7; margin-top:20px; }
+        .solution p{ color:#E6EEF0; font-size:16.5px; line-height:1.7; margin-top:20px; }
         .badge-pill{
           display:inline-flex; align-items:center; gap:8px; margin-top:26px; background:rgba(175,255,0,0.1);
           border:1px solid rgba(175,255,0,0.35); color:var(--signal); padding:9px 16px; border-radius:100px;
@@ -647,7 +670,7 @@ export default function App() {
           color:var(--signal); font-weight:700; font-size:15px; flex-shrink:0; z-index:2;
         }
         .step-text h4{ color:var(--paper); font-size:20px; font-weight:700; }
-        .step-text p{ color:#D7E0E2; font-size:15px; margin-top:6px; max-width:420px; line-height:1.6; }
+        .step-text p{ color:#E6EEF0; font-size:15px; margin-top:6px; max-width:420px; line-height:1.6; }
 
         /* ---------- COMPARE ---------- */
         .compare{ background:var(--paper); padding:120px 0; }
@@ -681,7 +704,7 @@ export default function App() {
         .pricing{ background:var(--ink); padding:120px 0; }
         .pricing-head{ max-width:640px; }
         .pricing-head h2{ color:var(--paper); font-size:38px; margin-top:16px; font-weight:800; line-height:1.15; }
-        .pricing-head p{ color:#D7E0E2; font-size:16px; margin-top:16px; line-height:1.6; }
+        .pricing-head p{ color:#E6EEF0; font-size:16px; margin-top:16px; line-height:1.6; }
         .plans-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:22px; margin-top:56px; }
         .plan-card{ background:var(--ink-soft); border:1px solid var(--line); border-radius:20px; padding:32px; display:flex; flex-direction:column; transition:transform .3s ease, border-color .3s ease; }
         .plan-card:hover{ transform:translateY(-6px); border-color:rgba(175,255,0,0.4); }
@@ -691,7 +714,7 @@ export default function App() {
         .plan-card.highlight .plan-feat svg{ color:var(--ink); }
         .plan-badge{ font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.1em; background:var(--ink); color:var(--signal); padding:5px 10px; border-radius:100px; align-self:flex-start; margin-bottom:16px; }
         .plan-name{ color:var(--paper); font-size:22px; font-weight:800; }
-        .plan-tagline{ color:#D7E0E2; font-size:13.5px; margin-top:6px; margin-bottom:18px; }
+        .plan-tagline{ color:#E6EEF0; font-size:13.5px; margin-top:6px; margin-bottom:18px; }
         .plan-price{ color:var(--paper); font-size:34px; font-weight:900; letter-spacing:-0.02em; margin-bottom:22px; }
         .plan-price span{ color:#C3CED1; font-size:13px; font-weight:700; letter-spacing:0; margin-left:4px; }
         .plan-feats{ display:flex; flex-direction:column; gap:12px; flex:1; }
@@ -735,21 +758,21 @@ export default function App() {
         footer{ background:var(--ink-deep); padding:76px 0 30px; }
         .foot-top{ display:grid; grid-template-columns:1.2fr repeat(4, minmax(120px, 0.8fr)) minmax(240px, 1.35fr); gap:28px; padding-bottom:56px; border-bottom:1px solid var(--line); }
         .foot-brand .logo{ margin-bottom:14px; }
-        .foot-brand p{ color:#C3CED1; font-size:14px; line-height:1.65; max-width:280px; }
+        .foot-brand p{ color:#D7E0E2; font-size:14px; line-height:1.65; max-width:280px; }
         .foot-social{ display:flex; gap:10px; margin-top:22px; }
         .foot-social a{ width:36px; height:36px; border-radius:50%; background:var(--ink-soft); display:flex; align-items:center; justify-content:center; color:var(--paper); text-decoration:none; transition:background .2s ease, color .2s ease; }
         .foot-social a:hover{ background:var(--signal); color:var(--ink); }
         .foot-col h5{ color:var(--paper); font-size:13px; letter-spacing:0.08em; text-transform:uppercase; font-family:'JetBrains Mono',monospace; margin-bottom:18px; font-weight:600; }
-        .foot-col a{ display:block; color:#C3CED1; text-decoration:none; font-size:14.5px; padding:7px 0; transition:color .2s ease; }
+        .foot-col a{ display:block; color:#D7E0E2; text-decoration:none; font-size:14.5px; padding:7px 0; transition:color .2s ease; }
         .foot-col a:hover{ color:var(--signal); }
         .newsletter-form{ display:flex; gap:8px; margin-top:14px; }
         .newsletter-form input{ min-width:0; flex:1; border:1px solid var(--line); background:var(--ink-soft); color:var(--paper); border-radius:999px; padding:12px 14px; font-family:'Raleway',sans-serif; font-size:14px; outline:none; }
         .newsletter-form input::placeholder{ color:#93A2A6; }
         .newsletter-form input:focus{ border-color:rgba(175,255,0,0.65); box-shadow:0 0 0 4px rgba(175,255,0,0.09); }
         .newsletter-form button{ border:0; border-radius:999px; background:var(--signal); color:var(--ink); padding:12px 16px; font-family:'Raleway',sans-serif; font-weight:800; cursor:pointer; white-space:nowrap; }
-        .newsletter-note{ color:#C3CED1; font-size:12.5px; line-height:1.5; margin-top:10px; max-width:300px; }
+        .newsletter-note{ color:#D7E0E2; font-size:12.5px; line-height:1.5; margin-top:10px; max-width:300px; }
         .foot-bottom{ display:flex; justify-content:space-between; align-items:center; padding-top:26px; flex-wrap:wrap; gap:12px; }
-        .foot-bottom p{ color:#93A2A6; font-size:12.5px; font-family:'JetBrains Mono',monospace; }
+        .foot-bottom p{ color:#C3CED1; font-size:12.5px; font-family:'JetBrains Mono',monospace; }
 
         /* ---------- RESPONSIVE ---------- */
         @media (max-width: 980px){

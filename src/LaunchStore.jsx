@@ -1,15 +1,11 @@
 import { useState } from 'react';
 import { IconRocket, IconArrowLeft, IconCheck } from './onboardingIcons';
+import { createStoreSlug, getStoreUrl } from './storeLinks';
 
 export default function LaunchStore({ formData, onBack, onComplete, loading }) {
   const [agreed, setAgreed] = useState(false);
-  const slug = (
-    (formData.businessName || formData.storeSlug || 'your-store')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '') || 'your-store'
-  );
-  const storeUrl = `https://${slug}.blorbify.com`;
+  const slug = createStoreSlug(formData.businessName || formData.storeSlug || 'your-store');
+  const storeUrl = getStoreUrl(slug);
 
   return (
     <div className="onboarding-screen">

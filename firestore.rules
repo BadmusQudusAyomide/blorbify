@@ -24,9 +24,31 @@ service cloud.firestore {
       allow delete: if isOwner(userId);
     }
 
+    match /publicStores/{storeSlug} {
+      allow read: if resource.data.published == true || isOwner(resource.data.ownerId);
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isSignedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && (!resource.data.keys().hasAny(['ownerId']) || resource.data.ownerId == request.auth.uid);
+      allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
     match /orders/{orderId} {
       allow read: if isSignedIn() && resource.data.storeId == request.auth.uid;
-      allow create: if isSignedIn() && request.resource.data.storeId == request.auth.uid;
+      allow create: if request.resource.data.keys().hasAll([
+          'storeId',
+          'storeSlug',
+          'items',
+          'total',
+          'customerName',
+          'customerPhone',
+          'customerAddress',
+          'status'
+        ])
+        && request.resource.data.status == 'pending'
+        && exists(/databases/$(database)/documents/publicStores/$(request.resource.data.storeSlug))
+        && get(/databases/$(database)/documents/publicStores/$(request.resource.data.storeSlug)).data.published == true
+        && get(/databases/$(database)/documents/publicStores/$(request.resource.data.storeSlug)).data.ownerId == request.resource.data.storeId;
       allow update: if isSignedIn() && resource.data.storeId == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.storeId == request.auth.uid;
     }
