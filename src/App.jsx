@@ -1,5 +1,10 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "./firebase.js";
 import AuthScreen from "./AuthScreen.jsx";
+import OnboardingScreen from "./OnboardingScreen.jsx";
+import Dashboard from "./Dashboard.jsx";
 
 /* ============================================================
    BLORBIFY — Landing Page
@@ -181,6 +186,12 @@ export default function App() {
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState("signup");
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [appView, setAppView] = useState("landing");
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterMessage, setNewsletterMessage] = useState("");
 
   useEffect(() => {
     const t = setTimeout(() => setHeroLoaded(true), 150);
@@ -190,6 +201,35 @@ export default function App() {
       clearTimeout(t);
       window.removeEventListener("scroll", onScroll);
     };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setAuthLoading(true);
+      setCurrentUser(user);
+      if (!user) {
+        setUserProfile(null);
+        setAppView("landing");
+        setAuthLoading(false);
+        return;
+      }
+
+      try {
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        const profile = userSnap.exists() ? userSnap.data() : {};
+        setUserProfile(profile);
+        setAppView(profile?.onboardingCompleted ? "dashboard" : "onboarding");
+      } catch (error) {
+        console.error("Failed to load user profile:", error);
+        setUserProfile(null);
+        setAppView("onboarding");
+      } finally {
+        setAuthLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const scrollTo = useCallback((id) => (e) => {
@@ -207,6 +247,30 @@ export default function App() {
 
   const closeAuth = useCallback(() => {
     setShowAuth(false);
+    if (!currentUser) {
+      setAppView("landing");
+    }
+  }, [currentUser]);
+
+  const handleNewsletterSubmit = useCallback((event) => {
+    event.preventDefault();
+    setNewsletterMessage("You're on the list. We'll send practical selling tips soon.");
+    setNewsletterEmail("");
+  }, []);
+
+  const handleAuthSuccess = useCallback(() => {
+    setShowAuth(false);
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await auth.signOut();
+    } finally {
+      setCurrentUser(null);
+      setUserProfile(null);
+      setAppView("landing");
+      setShowAuth(false);
+    }
   }, []);
 
   const painPoints = [
@@ -272,18 +336,24 @@ export default function App() {
     {
       name: "Starter",
       tagline: "Your store online, taking orders",
+      price: "\u20A610,000",
+      cadence: "/ month",
       features: ["Pro website + storefront", "Unlimited products", "Shareable store link", "No ads included"],
       highlight: false,
     },
     {
       name: "Growth",
       tagline: "Add delivery and start running ads",
+      price: "\u20A625,000",
+      cadence: "/ month",
       features: ["Everything in Starter", "Connected delivery", "Ads that bring buyers", "Order tracking for customers"],
       highlight: true,
     },
     {
       name: "Pro",
       tagline: "Full campaigns, priority everything",
+      price: "\u20A650,000",
+      cadence: "/ month",
       features: ["Everything in Growth", "Full ad campaigns", "Priority delivery", "Dedicated support"],
       highlight: false,
     },
@@ -296,15 +366,45 @@ export default function App() {
     { q: "Can I cancel if it\u2019s not for me?", a: "Yes \u2014 every plan is month-to-month. No lock-in." },
   ];
 
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#0F1518", color: "#F6F8F1", fontFamily: "Raleway, sans-serif" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ width: 44, height: 44, borderRadius: "50%", border: "3px solid rgba(255,255,255,0.15)", borderTopColor: "#AFFF00", margin: "0 auto 12px", animation: "spin 0.8s linear infinite" }} />
+          <div>Loading your workspace…</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (currentUser && appView === "dashboard") {
+    return <Dashboard user={currentUser} userProfile={userProfile} onLogout={handleLogout} />;
+  }
+
+  if (currentUser && appView === "onboarding") {
+    return (
+      <OnboardingScreen
+        userId={currentUser.uid}
+        userProfile={userProfile}
+        onComplete={(onboardingData) => {
+          setAppView("dashboard");
+          setUserProfile((prev) => ({
+            ...(prev || {}),
+            ...(onboardingData || {}),
+            onboardingCompleted: true,
+            onboardingData: onboardingData || prev?.onboardingData,
+          }));
+        }}
+      />
+    );
+  }
+
   if (showAuth) {
     return (
       <AuthScreen
         initialMode={authMode}
         onClose={closeAuth}
-        onSuccess={() => {
-          setShowAuth(false);
-          setNavOpen(false);
-        }}
+        onSuccess={handleAuthSuccess}
       />
     );
   }
@@ -356,7 +456,14 @@ export default function App() {
           background:var(--signal);
           box-shadow:0 0 0 3px rgba(175,255,0,0.18);
         }
-        .eyebrow.on-dark{ color:var(--signal); }
+        .hero .eyebrow,
+        .solution .eyebrow,
+        .how .eyebrow,
+        .pricing .eyebrow{ color:var(--signal); }
+        .hero .eyebrow::before,
+        .solution .eyebrow::before,
+        .how .eyebrow::before,
+        .pricing .eyebrow::before{ box-shadow:0 0 0 3px rgba(175,255,0,0.26); }
 
         .wrap{ max-width:1180px; margin:0 auto; padding:0 24px; }
         section{ position:relative; }
@@ -426,7 +533,7 @@ export default function App() {
           color:var(--paper); font-size:56px; line-height:1.04; font-weight:800; letter-spacing:-0.03em;
         }
         .hero h1 em{ font-style:normal; color:var(--signal); }
-        .hero-sub{ color:var(--slate); font-size:18px; line-height:1.6; margin-top:22px; max-width:480px; font-weight:400; }
+        .hero-sub{ color:#D7E0E2; font-size:18px; line-height:1.6; margin-top:22px; max-width:480px; font-weight:400; }
         .hero-cta-row{ display:flex; align-items:center; gap:18px; margin-top:34px; flex-wrap:wrap; }
         .btn-primary{
           background:var(--signal); color:var(--ink); border:none; padding:17px 26px; border-radius:100px;
@@ -437,18 +544,18 @@ export default function App() {
         .btn-primary:hover{ transform:translateY(-3px) scale(1.015); box-shadow:0 16px 32px rgba(175,255,0,0.3); }
         .btn-primary svg{ transition:transform .25s ease; }
         .btn-primary:hover svg{ transform:translateX(4px); }
-        .hero-micro{ color:var(--slate); font-size:13px; font-family:'JetBrains Mono',monospace; }
+        .hero-micro{ color:#C3CED1; font-size:13px; font-family:'JetBrains Mono',monospace; }
         .hero-stats{ display:flex; gap:28px; margin-top:52px; flex-wrap:wrap; }
         .hero-stat{ font-family:'JetBrains Mono',monospace; }
         .hero-stat b{ display:block; color:var(--signal); font-size:15px; font-weight:700; }
-        .hero-stat span{ color:var(--slate); font-size:11.5px; letter-spacing:0.06em; text-transform:uppercase; }
+        .hero-stat span{ color:#C3CED1; font-size:11.5px; letter-spacing:0.06em; text-transform:uppercase; }
 
         /* hero visual: chaos -> order */
         .hero-visual{ position:relative; height:460px; }
         .chaos-zone, .order-zone{ position:absolute; top:0; bottom:0; width:100%; }
         .bubble{
           position:absolute; background:var(--ink-soft); border:1px solid var(--line);
-          border-radius:16px; padding:10px 14px; font-size:12.5px; color:var(--slate);
+          border-radius:16px; padding:10px 14px; font-size:12.5px; color:#D7E0E2;
           box-shadow:0 14px 30px rgba(0,0,0,0.35);
           opacity:0; transform:translateY(18px) rotate(var(--r,0deg));
           transition:opacity .6s ease, transform .6s cubic-bezier(.2,.8,.2,1);
@@ -498,7 +605,7 @@ export default function App() {
         .solution{ background:var(--ink); padding:110px 0; position:relative; }
         .solution-inner{ display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:center; }
         .solution h2{ color:var(--paper); font-size:36px; line-height:1.16; margin-top:16px; font-weight:800; }
-        .solution p{ color:var(--slate); font-size:16.5px; line-height:1.7; margin-top:20px; }
+        .solution p{ color:#D7E0E2; font-size:16.5px; line-height:1.7; margin-top:20px; }
         .badge-pill{
           display:inline-flex; align-items:center; gap:8px; margin-top:26px; background:rgba(175,255,0,0.1);
           border:1px solid rgba(175,255,0,0.35); color:var(--signal); padding:9px 16px; border-radius:100px;
@@ -540,7 +647,7 @@ export default function App() {
           color:var(--signal); font-weight:700; font-size:15px; flex-shrink:0; z-index:2;
         }
         .step-text h4{ color:var(--paper); font-size:20px; font-weight:700; }
-        .step-text p{ color:var(--slate); font-size:15px; margin-top:6px; max-width:420px; line-height:1.6; }
+        .step-text p{ color:#D7E0E2; font-size:15px; margin-top:6px; max-width:420px; line-height:1.6; }
 
         /* ---------- COMPARE ---------- */
         .compare{ background:var(--paper); padding:120px 0; }
@@ -549,12 +656,12 @@ export default function App() {
         .compare-table{ background:var(--ink); border-radius:22px; overflow:hidden; }
         .cmp-row{ display:grid; grid-template-columns:1.2fr 1fr 1fr; }
         .cmp-row.head{ background:var(--ink-deep); }
-        .cmp-row.head .cmp-cell{ font-family:'JetBrains Mono',monospace; font-size:11.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--slate); padding:20px 24px; }
+        .cmp-row.head .cmp-cell{ font-family:'JetBrains Mono',monospace; font-size:11.5px; letter-spacing:0.1em; text-transform:uppercase; color:#C3CED1; padding:20px 24px; }
         .cmp-row.head .cmp-cell.us{ color:var(--signal); }
         .cmp-row:not(.head){ border-top:1px solid var(--line); }
         .cmp-cell{ padding:22px 24px; color:var(--paper); font-size:14.5px; display:flex; align-items:center; }
         .cmp-cell.label{ color:var(--paper); font-weight:700; font-size:15px; }
-        .cmp-cell.others{ color:var(--slate); }
+        .cmp-cell.others{ color:#C3CED1; }
         .cmp-cell.us{ color:var(--paper); background:rgba(175,255,0,0.06); font-weight:600; gap:10px; }
         .cmp-cell.us svg{ color:var(--signal); flex-shrink:0; }
 
@@ -574,24 +681,26 @@ export default function App() {
         .pricing{ background:var(--ink); padding:120px 0; }
         .pricing-head{ max-width:640px; }
         .pricing-head h2{ color:var(--paper); font-size:38px; margin-top:16px; font-weight:800; line-height:1.15; }
-        .pricing-head p{ color:var(--slate); font-size:16px; margin-top:16px; line-height:1.6; }
+        .pricing-head p{ color:#D7E0E2; font-size:16px; margin-top:16px; line-height:1.6; }
         .plans-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:22px; margin-top:56px; }
         .plan-card{ background:var(--ink-soft); border:1px solid var(--line); border-radius:20px; padding:32px; display:flex; flex-direction:column; transition:transform .3s ease, border-color .3s ease; }
         .plan-card:hover{ transform:translateY(-6px); border-color:rgba(175,255,0,0.4); }
         .plan-card.highlight{ background:var(--signal); border-color:var(--signal); }
-        .plan-card.highlight .plan-name, .plan-card.highlight .plan-tagline{ color:var(--ink); }
+        .plan-card.highlight .plan-name, .plan-card.highlight .plan-tagline, .plan-card.highlight .plan-price, .plan-card.highlight .plan-price span{ color:var(--ink); }
         .plan-card.highlight .plan-feat{ color:var(--ink); opacity:0.85; }
         .plan-card.highlight .plan-feat svg{ color:var(--ink); }
         .plan-badge{ font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.1em; background:var(--ink); color:var(--signal); padding:5px 10px; border-radius:100px; align-self:flex-start; margin-bottom:16px; }
         .plan-name{ color:var(--paper); font-size:22px; font-weight:800; }
-        .plan-tagline{ color:var(--slate); font-size:13.5px; margin-top:6px; margin-bottom:24px; }
+        .plan-tagline{ color:#D7E0E2; font-size:13.5px; margin-top:6px; margin-bottom:18px; }
+        .plan-price{ color:var(--paper); font-size:34px; font-weight:900; letter-spacing:-0.02em; margin-bottom:22px; }
+        .plan-price span{ color:#C3CED1; font-size:13px; font-weight:700; letter-spacing:0; margin-left:4px; }
         .plan-feats{ display:flex; flex-direction:column; gap:12px; flex:1; }
         .plan-feat{ display:flex; align-items:center; gap:10px; color:var(--paper); font-size:14px; opacity:0.9; }
         .plan-feat svg{ color:var(--signal); flex-shrink:0; }
         .plan-cta{ margin-top:28px; padding:13px; border-radius:100px; text-align:center; font-weight:700; font-size:14px; cursor:pointer; border:1px solid var(--signal); color:var(--signal); background:transparent; transition:all .25s ease; font-family:'Raleway',sans-serif; }
         .plan-card:not(.highlight) .plan-cta:hover{ background:rgba(175,255,0,0.1); }
         .plan-card.highlight .plan-cta{ background:var(--ink); color:var(--signal); border-color:var(--ink); }
-        .pricing-foot{ margin-top:28px; color:var(--slate); font-family:'JetBrains Mono',monospace; font-size:12.5px; }
+        .pricing-foot{ margin-top:28px; color:#C3CED1; font-family:'JetBrains Mono',monospace; font-size:12.5px; }
 
         /* ---------- FAQ ---------- */
         .faq{ background:var(--paper); padding:110px 0; }
@@ -624,17 +733,23 @@ export default function App() {
 
         /* ---------- FOOTER ---------- */
         footer{ background:var(--ink-deep); padding:76px 0 30px; }
-        .foot-top{ display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:40px; padding-bottom:56px; border-bottom:1px solid var(--line); }
+        .foot-top{ display:grid; grid-template-columns:1.2fr repeat(4, minmax(120px, 0.8fr)) minmax(240px, 1.35fr); gap:28px; padding-bottom:56px; border-bottom:1px solid var(--line); }
         .foot-brand .logo{ margin-bottom:14px; }
-        .foot-brand p{ color:var(--slate); font-size:14px; line-height:1.65; max-width:280px; }
+        .foot-brand p{ color:#C3CED1; font-size:14px; line-height:1.65; max-width:280px; }
         .foot-social{ display:flex; gap:10px; margin-top:22px; }
         .foot-social a{ width:36px; height:36px; border-radius:50%; background:var(--ink-soft); display:flex; align-items:center; justify-content:center; color:var(--paper); text-decoration:none; transition:background .2s ease, color .2s ease; }
         .foot-social a:hover{ background:var(--signal); color:var(--ink); }
         .foot-col h5{ color:var(--paper); font-size:13px; letter-spacing:0.08em; text-transform:uppercase; font-family:'JetBrains Mono',monospace; margin-bottom:18px; font-weight:600; }
-        .foot-col a{ display:block; color:var(--slate); text-decoration:none; font-size:14.5px; padding:7px 0; transition:color .2s ease; }
+        .foot-col a{ display:block; color:#C3CED1; text-decoration:none; font-size:14.5px; padding:7px 0; transition:color .2s ease; }
         .foot-col a:hover{ color:var(--signal); }
+        .newsletter-form{ display:flex; gap:8px; margin-top:14px; }
+        .newsletter-form input{ min-width:0; flex:1; border:1px solid var(--line); background:var(--ink-soft); color:var(--paper); border-radius:999px; padding:12px 14px; font-family:'Raleway',sans-serif; font-size:14px; outline:none; }
+        .newsletter-form input::placeholder{ color:#93A2A6; }
+        .newsletter-form input:focus{ border-color:rgba(175,255,0,0.65); box-shadow:0 0 0 4px rgba(175,255,0,0.09); }
+        .newsletter-form button{ border:0; border-radius:999px; background:var(--signal); color:var(--ink); padding:12px 16px; font-family:'Raleway',sans-serif; font-weight:800; cursor:pointer; white-space:nowrap; }
+        .newsletter-note{ color:#C3CED1; font-size:12.5px; line-height:1.5; margin-top:10px; max-width:300px; }
         .foot-bottom{ display:flex; justify-content:space-between; align-items:center; padding-top:26px; flex-wrap:wrap; gap:12px; }
-        .foot-bottom p{ color:var(--slate-dark); font-size:12.5px; font-family:'JetBrains Mono',monospace; }
+        .foot-bottom p{ color:#93A2A6; font-size:12.5px; font-family:'JetBrains Mono',monospace; }
 
         /* ---------- RESPONSIVE ---------- */
         @media (max-width: 980px){
@@ -647,23 +762,47 @@ export default function App() {
           .pain-grid{ grid-template-columns:1fr; }
           .plans-grid{ grid-template-columns:1fr; }
           .faq-inner{ grid-template-columns:1fr; gap:30px; }
-          .cmp-row{ grid-template-columns:1fr; }
+          .compare-table{ background:transparent; border-radius:0; display:grid; gap:14px; overflow:visible; }
+          .cmp-row{ grid-template-columns:1fr; background:#fff; border:1px solid rgba(25,35,40,0.08); border-radius:16px; overflow:hidden; box-shadow:0 14px 30px rgba(25,35,40,0.06); }
           .cmp-row.head{ display:none; }
-          .cmp-cell.label{ padding-bottom:6px; }
-          .cmp-cell.others::before{ content:"Others: "; color:var(--slate-dark); font-family:'JetBrains Mono',monospace; font-size:10px; margin-right:6px; }
-          .cmp-cell.us::before{ content:"Blorbify: "; color:var(--signal); font-family:'JetBrains Mono',monospace; font-size:10px; margin-right:6px; }
+          .cmp-row:not(.head){ border-top:1px solid rgba(25,35,40,0.08); }
+          .cmp-cell{ color:var(--ink); padding:14px 16px; align-items:flex-start; }
+          .cmp-cell.label{ color:var(--ink); background:var(--paper-dim); padding-bottom:14px; }
+          .cmp-cell.others{ color:#5C6B6E; background:#fff; display:block; }
+          .cmp-cell.us{ color:var(--ink); background:rgba(175,255,0,0.16); display:flex; }
+          .cmp-cell.others::before{ content:"Others"; display:block; color:#5C6B6E; font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:5px; }
+          .cmp-cell.us::before{ content:"Blorbify"; color:#4E7300; font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; margin-right:8px; padding-top:2px; }
           .nav-links{ display:none; }
           .nav-burger{ display:block; }
           .final-inner{ flex-direction:column; align-items:flex-start; }
+          .foot-top{ grid-template-columns:1.2fr 1fr 1fr; }
         }
         @media (max-width: 620px){
           .wrap{ padding:0 18px; }
           .hero{ padding:120px 0 80px; }
           .hero h1{ font-size:33px; }
           .hero-sub{ font-size:16px; }
+          .hero-cta-row{ align-items:stretch; }
+          .btn-primary{ width:100%; justify-content:center; text-align:center; }
+          .hero-stats{ display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:36px; }
+          .hero-visual{ height:auto; display:grid; gap:18px; margin-top:34px; }
+          .chaos-zone, .order-zone{ position:relative; inset:auto; width:100%; display:grid; grid-template-columns:1fr; gap:10px; }
+          .bubble, .store-card{ position:relative !important; inset:auto !important; width:100% !important; max-width:none; transform:translateY(12px) rotate(0deg); }
+          .bubble.loaded{ transform:translateY(0) rotate(0deg); }
+          .flow-arrow{ position:relative; left:auto; top:auto; transform:none; margin:0 auto; width:48px; height:48px; }
+          .flow-arrow.loaded{ transform:none; }
+          .flow-arrow svg{ transform:rotate(90deg); }
+          .store-card{ display:grid; grid-template-columns:92px minmax(0,1fr); align-items:center; border-radius:16px; }
+          .store-card.loaded{ transform:translateY(0) scale(1); }
+          .store-card .thumb{ height:86px; }
+          .store-card .meta{ padding:12px 14px; }
+          .store-card .meta .price{ font-size:13px; }
+          .store-card .meta .name{ font-size:12px; color:var(--ink); font-weight:700; }
           .problem h2, .solution h2, .features-head h2, .how-head h2, .compare-head h2, .pricing-head h2, .faq-head h2{ font-size:27px; }
           .testi-grid{ grid-template-columns:1fr; }
-          .foot-top{ grid-template-columns:1fr 1fr; gap:32px; }
+          .foot-top{ grid-template-columns:1fr; gap:32px; }
+          .newsletter-form{ flex-direction:column; }
+          .newsletter-form button{ width:100%; }
           .final-inner h2{ font-size:24px; }
         }
       `}</style>
@@ -920,6 +1059,7 @@ export default function App() {
                   {p.highlight && <span className="plan-badge">MOST POPULAR</span>}
                   <div className="plan-name">{p.name}</div>
                   <div className="plan-tagline">{p.tagline}</div>
+                  <div className="plan-price">{p.price}<span>{p.cadence}</span></div>
                   <div className="plan-feats">
                     {p.features.map((f) => (
                       <div className="plan-feat" key={f}><IconCheck size={16} />{f}</div>
@@ -930,7 +1070,7 @@ export default function App() {
               </Reveal>
             ))}
           </div>
-          <p className="pricing-foot">Naira pricing revealed at signup — built for Nigerian budgets, not dollar rates.</p>
+          <p className="pricing-foot">Prices are monthly and billed in Naira. Upgrade or cancel anytime.</p>
         </div>
       </section>
 
@@ -989,10 +1129,35 @@ export default function App() {
               <a href="#">Careers</a>
             </div>
             <div className="foot-col">
+              <h5>Blog</h5>
+              <a href="#">How to start selling online</a>
+              <a href="#">WhatsApp sales to real store</a>
+              <a href="#">Delivery tips for small shops</a>
+            </div>
+            <div className="foot-col">
               <h5>Support</h5>
               <a href="#faq" onClick={scrollTo("faq")}>FAQ</a>
               <a href="#">Contact us</a>
               <a href="#">Terms &amp; privacy</a>
+            </div>
+            <div className="foot-col">
+              <h5>Newsletter</h5>
+              <p className="newsletter-note">Selling tips, product updates, and practical growth ideas for Nigerian business owners.</p>
+              <form className="newsletter-form" onSubmit={handleNewsletterSubmit}>
+                <input
+                  type="email"
+                  placeholder="you@business.com"
+                  value={newsletterEmail}
+                  onChange={(event) => {
+                    setNewsletterEmail(event.target.value);
+                    setNewsletterMessage("");
+                  }}
+                  aria-label="Email address"
+                  required
+                />
+                <button type="submit">Subscribe</button>
+              </form>
+              {newsletterMessage && <p className="newsletter-note">{newsletterMessage}</p>}
             </div>
           </div>
           <div className="foot-bottom">

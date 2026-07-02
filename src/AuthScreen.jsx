@@ -1,31 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import OnboardingScreen from './OnboardingScreen';
 
 /* ============================================================
    AUTHENTICATION SCREEN — Blorbify
-   Design tokens (same as Blorbify)
-   Ink     #192328  (base dark)
-   Ink+    #0F1518  (deep panels)
-   Signal  #AFFF00  (acid lime accent)
-   Paper   #F6F8F1  (light section bg)
-   Slate   #93A2A6 / #5C6B6E (muted text)
-   Type    Raleway (display + body), JetBrains Mono (data/eyebrows)
-   Icons   hand-built, linear/duotone style modeled on Iconsax
    ============================================================ */
 
-/* ---------------- Icon set (same as Blorbify) ---------------- */
 const IconBase = ({ children, size = 24, ...rest }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    {...rest}
-  >
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...rest}>
     {children}
   </svg>
 );
@@ -81,11 +64,11 @@ const IconCheck = (p) => (
 
 const IconArrow = (p) => (
   <IconBase {...p}>
-    <path d="M4.5 12H19.5M13.5 6L19.5 12L13.5 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M5 12h14" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <path d="m13 6 6 6-6 6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
   </IconBase>
 );
 
-/* ---------------- Toast / Snackbar System ---------------- */
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(onClose, 4000);
@@ -107,16 +90,11 @@ const Toast = ({ message, type, onClose }) => {
   );
 };
 
-/* ---------------- Main Auth Component ---------------- */
 export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }) {
   const [isLogin, setIsLogin] = useState(initialMode === 'login');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toasts, setToasts] = useState([]);
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [userId, setUserId] = useState(null);
-
-  // Form fields
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -125,31 +103,27 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
 
   const addToast = (message, type = 'info') => {
     const id = Date.now();
-    setToasts(prev => [...prev, { id, message, type }]);
+    setToasts((prev) => [...prev, { id, message, type }]);
   };
 
   const removeToast = (id) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
 
     if (isLogin) {
       if (!email || !password) {
         addToast('Please enter your email and password to continue.', 'error');
         return;
       }
-    } else {
-      if (!firstName || !lastName || !email || !password || !confirmPassword) {
-        addToast('Please fill in all fields to create your account.', 'error');
-        return;
-      }
-
-      if (password !== confirmPassword) {
-        addToast('Passwords do not match. Please try again.', 'error');
-        return;
-      }
+    } else if (!firstName || !lastName || !email || !password || !confirmPassword) {
+      addToast('Please fill in all fields to create your account.', 'error');
+      return;
+    } else if (password !== confirmPassword) {
+      addToast('Passwords do not match. Please try again.', 'error');
+      return;
     }
 
     setLoading(true);
@@ -158,6 +132,7 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
       if (isLogin) {
         const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
         const user = userCredential.user;
+
         await setDoc(
           doc(db, 'users', user.uid),
           {
@@ -167,22 +142,23 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
           },
           { merge: true }
         );
-        addToast('Welcome back! You have been signed in.', 'success');
+
+        addToast('Welcome back! Your account is ready.', 'success');
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
         const user = userCredential.user;
+
         await setDoc(doc(db, 'users', user.uid), {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
           email: user.email,
+          onboardingCompleted: false,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           provider: 'email',
         });
-        setUserId(user.uid);
-        setShowOnboarding(true);
+
         addToast('Account created! Welcome to Blorbify.', 'success');
-        return;
       }
 
       onSuccess?.();
@@ -204,24 +180,6 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
     setLastName('');
     setConfirmPassword('');
   };
-
-  if (showOnboarding && userId) {
-    return (
-      <OnboardingScreen
-        userId={userId}
-        onComplete={() => {
-          setShowOnboarding(false);
-          onSuccess?.();
-          onClose?.();
-        }}
-        onSkip={() => {
-          setShowOnboarding(false);
-          onSuccess?.();
-          onClose?.();
-        }}
-      />
-    );
-  }
 
   return (
     <div className="auth-root">
@@ -261,7 +219,6 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
           box-sizing: border-box;
         }
 
-        /* -------- Toast / Snackbar -------- */
         .toast-container {
           position: fixed;
           top: 24px;
@@ -291,26 +248,12 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
           background: rgba(15, 21, 24, 0.92);
         }
 
-        .toast--success {
-          border-left: 3px solid var(--signal);
-        }
-        .toast--success .toast-icon {
-          color: var(--signal);
-        }
-
-        .toast--error {
-          border-left: 3px solid #FF6B6B;
-        }
-        .toast--error .toast-icon {
-          color: #FF6B6B;
-        }
-
-        .toast--info {
-          border-left: 3px solid var(--slate);
-        }
-        .toast--info .toast-icon {
-          color: var(--slate);
-        }
+        .toast--success { border-left: 3px solid var(--signal); }
+        .toast--success .toast-icon { color: var(--signal); }
+        .toast--error { border-left: 3px solid #FF6B6B; }
+        .toast--error .toast-icon { color: #FF6B6B; }
+        .toast--info { border-left: 3px solid var(--slate); }
+        .toast--info .toast-icon { color: var(--slate); }
 
         .toast-icon {
           display: flex;
@@ -338,22 +281,13 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
           transition: color 0.2s;
           flex-shrink: 0;
         }
-        .toast-close:hover {
-          color: var(--paper);
-        }
+        .toast-close:hover { color: var(--paper); }
 
         @keyframes toastIn {
-          0% {
-            opacity: 0;
-            transform: translateX(40px) scale(0.96);
-          }
-          100% {
-            opacity: 1;
-            transform: translateX(0) scale(1);
-          }
+          0% { opacity: 0; transform: translateX(40px) scale(0.96); }
+          100% { opacity: 1; transform: translateX(0) scale(1); }
         }
 
-        /* -------- Auth Card -------- */
         .auth-card {
           width: 100%;
           max-width: 460px;

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { IconPlus, IconTrash, IconArrowLeft, IconArrowRight } from './onboardingIcons';
 
 export default function Step3_AddProducts({ formData, updateFormData, onNext, onPrev }) {
   const [products, setProducts] = useState(formData.products || [
@@ -135,7 +136,7 @@ export default function Step3_AddProducts({ formData, updateFormData, onNext, on
                   className="remove-btn"
                   onClick={() => removeProduct(index)}
                 >
-                  ×
+                  <IconTrash size={16} />
                 </button>
               )}
               <div className="product-fields">
@@ -182,7 +183,8 @@ export default function Step3_AddProducts({ formData, updateFormData, onNext, on
 
         {products.length < 10 && (
           <button type="button" className="add-product-btn" onClick={addProduct}>
-            + Add another product
+            <IconPlus size={16} />
+            Add another product
           </button>
         )}
 
@@ -192,10 +194,12 @@ export default function Step3_AddProducts({ formData, updateFormData, onNext, on
 
         <div className="btn-group">
           <button type="button" className="btn-back" onClick={onPrev}>
+            <IconArrowLeft size={16} />
             Back
           </button>
           <button type="submit" className="btn-next" style={{ flex: 1, justifyContent: 'center' }}>
-            Next Step →
+            Continue
+            <IconArrowRight size={16} />
           </button>
         </div>
       </form>
