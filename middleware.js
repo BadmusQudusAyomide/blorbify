@@ -51,6 +51,33 @@ function decodeFirestoreFields(fields) {
   return result;
 }
 
+// Facebook rejects og:image below 200x200px. Rather than requiring a re-upload for every seller's
+// existing (often small) product photos, pad/upscale the preview copy on the fly via a Cloudinary
+// transform — the original asset and the storefront's own display of it are untouched.
+function withCloudinaryPreviewTransform(imageUrl) {
+  if (!imageUrl) return { url: imageUrl, transformed: false };
+
+  let parsed;
+  try {
+    parsed = new URL(imageUrl);
+  } catch {
+    return { url: imageUrl, transformed: false };
+  }
+  if (!parsed.hostname.endsWith('cloudinary.com')) {
+    return { url: imageUrl, transformed: false };
+  }
+
+  const marker = '/upload/';
+  const markerIndex = imageUrl.indexOf(marker);
+  if (markerIndex === -1) {
+    return { url: imageUrl, transformed: false };
+  }
+
+  const insertAt = markerIndex + marker.length;
+  const transformedUrl = `${imageUrl.slice(0, insertAt)}w_${DEFAULT_OG_IMAGE_WIDTH},h_${DEFAULT_OG_IMAGE_HEIGHT},c_pad,b_white/${imageUrl.slice(insertAt)}`;
+  return { url: transformedUrl, transformed: true };
+}
+
 async function fetchPublicStore(storeSlug) {
   const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/publicStores/${encodeURIComponent(storeSlug)}?key=${FIREBASE_API_KEY}`;
   const response = await fetch(url);
@@ -132,14 +159,18 @@ export default async function middleware(request) {
       : `Available now at ${store.businessName || 'this store'}. ${formatCurrency(product.price)}.`;
 
     const hasProductImage = Boolean(product.imageUrl);
+    const rawImage = product.imageUrl || store.bannerUrl || '';
+    const { url: previewImage, transformed } = withCloudinaryPreviewTransform(rawImage);
 
     return new Response(
       renderProductOgHtml({
         title,
         description,
-        image: product.imageUrl || store.bannerUrl || '',
-        imageWidth: hasProductImage ? product.imageWidth : null,
-        imageHeight: hasProductImage ? product.imageHeight : null,
+        image: previewImage,
+        // A transformed image is always exactly DEFAULT_OG_IMAGE_WIDTH x DEFAULT_OG_IMAGE_HEIGHT
+        // (padded to fit), so declare that directly rather than the pre-transform source size.
+        imageWidth: transformed ? DEFAULT_OG_IMAGE_WIDTH : (hasProductImage ? product.imageWidth : null),
+        imageHeight: transformed ? DEFAULT_OG_IMAGE_HEIGHT : (hasProductImage ? product.imageHeight : null),
         pageUrl: url.toString(),
       }),
       { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } }

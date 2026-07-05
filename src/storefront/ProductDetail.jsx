@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StoreIcon } from './icons';
 import { getProductImages } from '../productImages';
 
@@ -15,6 +15,23 @@ export default function ProductDetail({ product, categoryLabel, deliveryFee, isW
     setQuantity(1);
     setLinkCopied(false);
   }
+
+  // Lock background scroll while the modal is open — otherwise touch-scrolling the modal
+  // on mobile also scrolls the storefront page behind it.
+  useEffect(() => {
+    if (!product) return undefined;
+
+    const { body, documentElement: html } = document;
+    const previousBodyOverflow = body.style.overflow;
+    const previousHtmlOverflow = html.style.overflow;
+    body.style.overflow = 'hidden';
+    html.style.overflow = 'hidden';
+
+    return () => {
+      body.style.overflow = previousBodyOverflow;
+      html.style.overflow = previousHtmlOverflow;
+    };
+  }, [product]);
 
   if (!product) return null;
 

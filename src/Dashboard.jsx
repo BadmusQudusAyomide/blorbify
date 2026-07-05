@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { collection, doc, limit, onSnapshot, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 import {
+  checkProductImageDimensions,
   uploadProductImage,
   uploadStoreBanner,
   uploadStoreLogo,
@@ -290,6 +291,7 @@ function ProductManager({ userId, storeInfo, products, onProductsSaved }) {
   const [deletingId, setDeletingId] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [warning, setWarning] = useState('');
 
   useEffect(() => {
     return () => {
@@ -306,7 +308,7 @@ function ProductManager({ userId, storeInfo, products, onProductsSaved }) {
     setSuccess('');
   };
 
-  const handleImagesChange = (event) => {
+  const handleImagesChange = async (event) => {
     const files = Array.from(event.target.files || []);
     event.target.value = '';
     if (!files.length) return;
@@ -319,6 +321,7 @@ function ProductManager({ userId, storeInfo, products, onProductsSaved }) {
 
     const accepted = [];
     let validationError = '';
+    const dimensionWarnings = [];
     for (const file of files.slice(0, room)) {
       const fileError = validateProductImage(file);
       if (fileError) {
@@ -326,11 +329,15 @@ function ProductManager({ userId, storeInfo, products, onProductsSaved }) {
         continue;
       }
       accepted.push({ uid: nextImageItemId(), kind: 'new', file, previewUrl: URL.createObjectURL(file) });
+
+      const dimensionWarning = await checkProductImageDimensions(file);
+      if (dimensionWarning) dimensionWarnings.push(dimensionWarning);
     }
 
     if (accepted.length) {
       setImageItems((current) => [...current, ...accepted]);
     }
+    setWarning(dimensionWarnings[0] || '');
     if (files.length > room) {
       setError(`You can add up to ${MAX_PRODUCT_IMAGES} photos per product.`);
     } else if (validationError) {
@@ -359,6 +366,7 @@ function ProductManager({ userId, storeInfo, products, onProductsSaved }) {
     setImageItems([]);
     setEditingKey('');
     setUploadProgress(0);
+    setWarning('');
   };
 
   const saveProducts = async (nextProducts) => {
@@ -500,6 +508,7 @@ function ProductManager({ userId, storeInfo, products, onProductsSaved }) {
     setUploadProgress(0);
     setError('');
     setSuccess('');
+    setWarning('');
     setForm({
       name: product.name || '',
       price: product.price ?? '',
@@ -592,6 +601,7 @@ function ProductManager({ userId, storeInfo, products, onProductsSaved }) {
             </div>
           )}
 
+          {warning && <div className="form-alert warning">{warning}</div>}
           {error && <div className="form-alert error">{error}</div>}
           {success && <div className="form-alert success">{success}</div>}
 
@@ -2351,6 +2361,11 @@ export default function Dashboard({ user, userProfile, onLogout }) {
           background: rgba(175,255,0,.16);
           color: #3d5900;
           border: 1px solid rgba(175,255,0,.3);
+        }
+        .form-alert.warning {
+          background: rgba(255,184,0,.12);
+          color: #8a5a00;
+          border: 1px solid rgba(255,184,0,.32);
         }
         .product-list-card {
           min-width: 0;
