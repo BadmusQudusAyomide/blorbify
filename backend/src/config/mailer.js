@@ -8,16 +8,32 @@ export function isResendConfigured() {
   return Boolean(env.resendApiKey);
 }
 
-export async function sendResendEmail({ to, subject, html, text }) {
+export async function sendResendEmail({ to, subject, html, text, attachments = [] }) {
   const from = env.resendFrom || env.mailFrom;
 
   if (!from) {
     throw new Error('Missing RESEND_FROM (must be a verified sender in Resend).');
   }
 
+  // Resend's API wants attachment content base64-encoded, unlike nodemailer which
+  // accepts raw string/Buffer content natively.
+  const resendAttachments = attachments.map((attachment) => ({
+    filename: attachment.filename,
+    content: Buffer.isBuffer(attachment.content)
+      ? attachment.content.toString('base64')
+      : Buffer.from(String(attachment.content), 'utf8').toString('base64'),
+  }));
+
   const response = await axios.post(
     'https://api.resend.com/emails',
-    { from, to, subject, html: html || undefined, text: text || undefined },
+    {
+      from,
+      to,
+      subject,
+      html: html || undefined,
+      text: text || undefined,
+      attachments: resendAttachments.length ? resendAttachments : undefined,
+    },
     {
       headers: {
         Authorization: `Bearer ${env.resendApiKey}`,

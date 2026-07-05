@@ -20,13 +20,13 @@ export async function queueNotification(notification) {
   return { id: docRef.id, ...payload };
 }
 
-export async function sendEmail({ to, subject, html, text, data = {} }) {
+export async function sendEmail({ to, subject, html, text, data = {}, attachments = [] }) {
   if (!to) {
     throw new Error('Email recipient is required.');
   }
 
   if (isResendConfigured()) {
-    const result = await sendResendEmail({ to, subject, html, text });
+    const result = await sendResendEmail({ to, subject, html, text, attachments });
     return { sent: true, messageId: result?.id || null };
   }
 
@@ -38,10 +38,16 @@ export async function sendEmail({ to, subject, html, text, data = {} }) {
       subject,
       text,
       html,
+      attachments,
     });
 
     return { sent: true, messageId: result.messageId };
   }
+
+  // Attachments are dropped on this fallback path — the Firestore `notifications`
+  // doc is a queued record, not a real transport, so there's nowhere to put a
+  // CSV file. Acceptable: the report data can be regenerated on demand via the
+  // ledger export routes.
 
   const queued = await queueNotification({
     type: 'email',
@@ -142,6 +148,71 @@ export async function sendOrderStatusEmail({ order, status, storeName }) {
     html,
     text,
     data: { orderId: order.id || null, status },
+  });
+}
+
+export async function sendLowStockEmail({ toEmail, storeName, productName, stock }) {
+  if (!toEmail) {
+    return { sent: false, skipped: true };
+  }
+
+  const resolvedStoreName = storeName || 'your store';
+  const subject = `Low stock: ${productName} is running out on ${resolvedStoreName}`;
+  const message = stock > 0
+    ? `Only ${stock} left in stock — restock soon so you don't miss out on sales.`
+    : `This product is now out of stock.`;
+  const dashboardUrl = getDashboardUrl();
+  const html = renderEmailLayout({
+    preheader: message,
+    heading: 'Low stock alert',
+    bodyHtml: `
+      <p style="margin:0 0 14px;">Hi there,</p>
+      <p style="margin:0 0 14px;">${escapeHtml(message)}</p>
+      <p style="margin:0;">Product:<br />${renderEmailCodePill(escapeHtml(productName || ''))}</p>
+    `,
+    ctaLabel: 'Update stock',
+    ctaUrl: dashboardUrl,
+    footerNote: `Sent because ${escapeHtml(productName || 'a product')} crossed your low-stock threshold.`,
+  });
+  const text = `${subject}\n\n${message}\n\nProduct: ${productName || ''}\n\n${dashboardUrl}`;
+
+  return sendEmail({
+    to: toEmail,
+    subject,
+    html,
+    text,
+    data: { type: 'low-stock', productName, stock },
+  });
+}
+
+export async function sendAbandonedCartEmail({ toEmail, toName, storeName, storeSlug }) {
+  if (!toEmail) {
+    return { sent: false, skipped: true };
+  }
+
+  const resolvedStoreName = storeName || 'the store';
+  const storeUrl = getDashboardUrl(`/${storeSlug || ''}`);
+  const subject = `You left something in your cart at ${resolvedStoreName}`;
+  const recipientName = toName || 'there';
+  const html = renderEmailLayout({
+    preheader: `Your cart at ${resolvedStoreName} is still waiting for you.`,
+    heading: 'Still thinking it over?',
+    bodyHtml: `
+      <p style="margin:0 0 14px;">Hi ${escapeHtml(recipientName)},</p>
+      <p style="margin:0;">You left some items in your cart at ${renderEmailCodePill(escapeHtml(resolvedStoreName))}. Come back and finish your order whenever you're ready.</p>
+    `,
+    ctaLabel: `Return to ${resolvedStoreName}`,
+    ctaUrl: storeUrl,
+    footerNote: `Sent because you started an order at ${escapeHtml(resolvedStoreName)} on Blorbify.`,
+  });
+  const text = `${subject}\n\nHi ${recipientName}, you left some items in your cart at ${resolvedStoreName}.\n\n${storeUrl}`;
+
+  return sendEmail({
+    to: toEmail,
+    subject,
+    html,
+    text,
+    data: { type: 'abandoned-cart', storeSlug },
   });
 }
 

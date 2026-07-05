@@ -1,12 +1,23 @@
 import { useEffect, useState } from 'react';
+import { addDoc, collection, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
+import { db } from '../firebase';
 import { StoreIcon } from './icons';
 import { getProductImages } from '../productImages';
+import StarRating from './StarRating';
 
-export default function ProductDetail({ product, categoryLabel, deliveryFee, isWished, addLabel, formatCurrency, onClose, onAddToCart, onToggleWish, shareUrl }) {
+const emptyReviewForm = { rating: 0, customerName: '', comment: '' };
+
+export default function ProductDetail({ product, categoryLabel, deliveryFee, isWished, addLabel, formatCurrency, onClose, onAddToCart, onToggleWish, shareUrl, storeSlug }) {
   const [quantity, setQuantity] = useState(1);
   const [activeIndex, setActiveIndex] = useState(0);
   const [trackedKey, setTrackedKey] = useState(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewForm, setReviewForm] = useState(emptyReviewForm);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+  const [reviewSuccess, setReviewSuccess] = useState('');
 
   const productKey = product ? (product.id || product.imageUrl) : null;
   if (productKey !== trackedKey) {
@@ -14,7 +25,39 @@ export default function ProductDetail({ product, categoryLabel, deliveryFee, isW
     setActiveIndex(0);
     setQuantity(1);
     setLinkCopied(false);
+    setReviews([]);
+    setReviewsLoading(Boolean(productKey && storeSlug));
+    setReviewForm(emptyReviewForm);
+    setReviewError('');
+    setReviewSuccess('');
   }
+
+  useEffect(() => {
+    if (!productKey || !storeSlug) return undefined;
+
+    let active = true;
+    const reviewsQuery = query(collection(db, 'publicStores', storeSlug, 'reviews'), where('productId', '==', productKey));
+    getDocs(reviewsQuery)
+      .then((snapshot) => {
+        if (!active) return;
+        const docs = snapshot.docs
+          .map((reviewDoc) => ({ id: reviewDoc.id, ...reviewDoc.data() }))
+          .filter((review) => !review.hidden)
+          .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+        setReviews(docs);
+      })
+      .catch((error) => {
+        console.error('Reviews load failed:', error);
+        setReviews([]);
+      })
+      .finally(() => {
+        if (active) setReviewsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [productKey, storeSlug]);
 
   // Lock background scroll while the modal is open — otherwise touch-scrolling the modal
   // on mobile also scrolls the storefront page behind it.
@@ -60,6 +103,53 @@ export default function ProductDetail({ product, categoryLabel, deliveryFee, isW
       setTimeout(() => setLinkCopied(false), 2000);
     } catch (error) {
       console.error('Copy product link failed:', error);
+    }
+  };
+
+  const averageRating = reviews.length
+    ? reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / reviews.length
+    : 0;
+
+  const handleSubmitReview = async (event) => {
+    event.preventDefault();
+    setReviewError('');
+    setReviewSuccess('');
+
+    const name = reviewForm.customerName.trim();
+    const comment = reviewForm.comment.trim();
+
+    if (!reviewForm.rating) {
+      setReviewError('Select a star rating.');
+      return;
+    }
+    if (!name) {
+      setReviewError('Enter your name.');
+      return;
+    }
+    if (!comment) {
+      setReviewError('Write a short comment.');
+      return;
+    }
+
+    setSubmittingReview(true);
+    try {
+      const newReview = {
+        productId: productKey,
+        productName: product.name,
+        rating: reviewForm.rating,
+        comment,
+        customerName: name,
+        createdAt: serverTimestamp(),
+      };
+      await addDoc(collection(db, 'publicStores', storeSlug, 'reviews'), newReview);
+      setReviews((current) => [{ ...newReview, id: `local-${Date.now()}`, createdAt: { toMillis: () => Date.now() } }, ...current]);
+      setReviewForm(emptyReviewForm);
+      setReviewSuccess('Thanks for your review!');
+    } catch (error) {
+      console.error('Review submission failed:', error);
+      setReviewError('Your review could not be submitted — please try again.');
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -139,6 +229,62 @@ export default function ProductDetail({ product, categoryLabel, deliveryFee, isW
               {linkCopied ? 'Link copied!' : 'Copy product link'}
             </button>
           </div>
+
+          {storeSlug && (
+            <div className="pdetail-reviews">
+              <div className="pdetail-reviews-head">
+                <h3>Reviews</h3>
+                {reviews.length > 0 && (
+                  <span className="pdetail-reviews-summary">
+                    <StarRating value={averageRating} size={14} /> {averageRating.toFixed(1)} ({reviews.length})
+                  </span>
+                )}
+              </div>
+
+              {reviewsLoading ? (
+                <p className="pdetail-reviews-empty">Loading reviews…</p>
+              ) : reviews.length > 0 ? (
+                <div className="pdetail-reviews-list">
+                  {reviews.map((review) => (
+                    <div className="pdetail-review" key={review.id}>
+                      <div className="pdetail-review-head">
+                        <StarRating value={review.rating} size={13} />
+                        <strong>{review.customerName}</strong>
+                      </div>
+                      <p>{review.comment}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="pdetail-reviews-empty">No reviews yet — be the first to share your experience.</p>
+              )}
+
+              <form className="pdetail-review-form" onSubmit={handleSubmitReview}>
+                <span className="pdetail-review-form-label">Leave a review</span>
+                <StarRating
+                  value={reviewForm.rating}
+                  size={20}
+                  onChange={(rating) => setReviewForm((current) => ({ ...current, rating }))}
+                />
+                <input
+                  value={reviewForm.customerName}
+                  onChange={(event) => setReviewForm((current) => ({ ...current, customerName: event.target.value }))}
+                  placeholder="Your name"
+                />
+                <textarea
+                  value={reviewForm.comment}
+                  onChange={(event) => setReviewForm((current) => ({ ...current, comment: event.target.value }))}
+                  placeholder="Share what you thought of this product"
+                  rows={3}
+                />
+                {reviewError && <p className="pdetail-review-alert error">{reviewError}</p>}
+                {reviewSuccess && <p className="pdetail-review-alert success">{reviewSuccess}</p>}
+                <button type="submit" className="store-cta secondary" disabled={submittingReview}>
+                  {submittingReview ? 'Submitting…' : 'Submit review'}
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       </div>
     </div>

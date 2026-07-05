@@ -16,6 +16,7 @@ export default function AtelierTemplate(props) {
     cart, cartCount, cartSubtotal, cartTotal, deliveryFee, freeShippingThreshold, updateQuantity, removeItem,
     cartOpen, setCartOpen, closeCart, mobileMenuOpen, setMobileMenuOpen,
     customer, updateCustomer, handleCheckout, submittingOrder, orderPlaced,
+    whatsappEnabled, handleWhatsAppCheckout, couponCode, setCouponCode,
     newsletterEmail, setNewsletterEmail, handleNewsletterSubmit,
     toasts, dismiss,
   } = props;
@@ -78,6 +79,7 @@ export default function AtelierTemplate(props) {
         .store-cta.secondary { background: transparent; color: var(--store-ink); border: 1.5px solid var(--store-line); }
         .store-cta.secondary:hover { border-color: var(--store-ink); }
         .store-cta.block { width: 100%; border-radius: 4px; }
+        .whatsapp-cta { background: #25D366; color: #fff; margin-top: 4px; }
         .store-cta:disabled { opacity: .55; cursor: not-allowed; transform: none; box-shadow: none; }
         .atelier-hero-art { position: relative; aspect-ratio: 4 / 5; }
         .atelier-hero-frame { position: absolute; overflow: hidden; background: var(--store-card); box-shadow: 0 26px 54px -20px rgba(62,47,37,.3); padding: 14px 14px 42px; }
@@ -304,6 +306,10 @@ export default function AtelierTemplate(props) {
         onContinueShopping={closeCart}
         checkoutLabel={copy.checkoutLabel}
         formatCurrency={formatCurrency}
+        whatsappEnabled={whatsappEnabled}
+        onWhatsAppCheckout={handleWhatsAppCheckout}
+        couponCode={couponCode}
+        onCouponCodeChange={setCouponCode}
       />
 
       <ProductDetail
@@ -316,6 +322,7 @@ export default function AtelierTemplate(props) {
         onClose={() => setSelectedProduct(null)}
         onAddToCart={(quantity) => addToCart(selectedProduct, quantity)}
         onToggleWish={() => toggleWishlist(selectedProduct)}
+        storeSlug={store.storeSlug}
       />
 
       <ToastStack toasts={toasts} onDismiss={dismiss} />

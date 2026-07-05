@@ -1,6 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { arrayUnion, collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
+import QRCode from 'qrcode';
+import {
+  arrayUnion,
+  collection,
+  deleteDoc,
+  doc,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+} from 'firebase/firestore';
 import {
   checkProductImageDimensions,
   uploadProductImage,
@@ -27,8 +40,9 @@ import {
   storeTemplates,
 } from './storeTemplates';
 import LivePreviewFrame from './storefront/LivePreviewFrame';
+import StarRating from './storefront/StarRating';
 import { nigerianStates } from './nigerianStates';
-import { notifyOrderStatusUpdate } from './backendApi';
+import { notifyLowStock, notifyOrderStatusUpdate } from './backendApi';
 
 const emptyStats = {
   revenue: 0,
@@ -89,6 +103,54 @@ const IconWallet = (props) => (
     <path d="M4.5 7.5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2v-9Z" stroke="currentColor" strokeWidth="1.7" />
     <path d="M17.5 11h2V9.2h-2c-1 0-1.8.8-1.8 1.8v0c0 1 .8 1.8 1.8 1.8Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
     <circle cx="14.2" cy="11" r="1" fill="currentColor" />
+  </IconBase>
+);
+
+const IconTruck = (props) => (
+  <IconBase {...props}>
+    <path d="M3 6.5h10.5v10H3z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+    <path d="M13.5 10h3.7L20 12.8v3.7h-6.5Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+    <circle cx="7.5" cy="17.5" r="1.8" stroke="currentColor" strokeWidth="1.7" />
+    <circle cx="16.5" cy="17.5" r="1.8" stroke="currentColor" strokeWidth="1.7" />
+  </IconBase>
+);
+
+const IconServices = (props) => (
+  <IconBase {...props}>
+    <path d="M8 7V5.8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2V7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    <rect x="3.5" y="7" width="17" height="12" rx="2" stroke="currentColor" strokeWidth="1.7" />
+    <path d="M3.5 12.5h17M10.5 12v2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+  </IconBase>
+);
+
+const IconQr = (props) => (
+  <IconBase {...props}>
+    <rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1.2" stroke="currentColor" strokeWidth="1.7" />
+    <rect x="14" y="3.5" width="6.5" height="6.5" rx="1.2" stroke="currentColor" strokeWidth="1.7" />
+    <rect x="3.5" y="14" width="6.5" height="6.5" rx="1.2" stroke="currentColor" strokeWidth="1.7" />
+    <path d="M14 14h3v3h-3zM19 14h1.5v1.5H19zM14 19h1.5v1.5H14zM17.5 17.5H20V20h-2.5z" fill="currentColor" />
+  </IconBase>
+);
+
+const IconCoupon = (props) => (
+  <IconBase {...props}>
+    <path d="M4 9.5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v1.3a1.7 1.7 0 0 0 0 3.4V15.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1.3a1.7 1.7 0 0 0 0-3.4Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+    <path d="M9.5 7.5v9" stroke="currentColor" strokeWidth="1.7" strokeDasharray="1.6 2" strokeLinecap="round" />
+  </IconBase>
+);
+
+const IconShare = (props) => (
+  <IconBase {...props}>
+    <circle cx="18" cy="6" r="2.3" stroke="currentColor" strokeWidth="1.7" />
+    <circle cx="6" cy="12" r="2.3" stroke="currentColor" strokeWidth="1.7" />
+    <circle cx="18" cy="18" r="2.3" stroke="currentColor" strokeWidth="1.7" />
+    <path d="m8.1 10.8 7.8-3.6M8.1 13.2l7.8 3.6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+  </IconBase>
+);
+
+const IconStar = (props) => (
+  <IconBase {...props}>
+    <path d="m12 4 2.3 4.9 5.3.7-3.9 3.7.9 5.3L12 16l-4.6 2.6.9-5.3-3.9-3.7 5.3-.7Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
   </IconBase>
 );
 
@@ -194,6 +256,108 @@ const businessTypeOptions = [
   { value: 'handmade', label: 'Handmade & Crafts' },
   { value: 'health', label: 'Health & Wellness' },
   { value: 'others', label: 'Others' },
+];
+
+const logisticsPartners = [
+  {
+    name: 'GIG Logistics',
+    coverage: 'Nationwide, same-day in major cities',
+    description: 'Pickup and delivery for parcels of any size, with real-time tracking for your customers.',
+    status: 'available',
+  },
+  {
+    name: 'Kwik Delivery',
+    coverage: 'Lagos, Abuja, Port Harcourt',
+    description: 'Fast dispatch riders for same-day, in-city orders — a good fit for perishable or urgent items.',
+    status: 'available',
+  },
+  {
+    name: 'Gokada Delivery',
+    coverage: 'Lagos',
+    description: 'On-demand motorcycle couriers for quick local drop-offs within Lagos.',
+    status: 'available',
+  },
+  {
+    name: 'DHL Nigeria',
+    coverage: 'Nationwide and international',
+    description: 'Reliable option for interstate and cross-border orders that need tracked, insured delivery.',
+    status: 'coming-soon',
+  },
+];
+
+const businessServiceGroups = [
+  {
+    category: 'Business Registration',
+    services: [
+      {
+        name: 'CAC Registration',
+        meta: 'Business name or limited liability',
+        description: 'Register your business with the Corporate Affairs Commission so you can open a business bank account and build trust with customers.',
+        status: 'coming-soon',
+      },
+    ],
+  },
+  {
+    category: 'Advertising',
+    services: [
+      {
+        name: 'Meta Ads',
+        meta: 'Facebook & Instagram',
+        description: 'Targeted ad campaigns that put your store in front of buyers already browsing on Facebook and Instagram.',
+        status: 'available',
+      },
+      {
+        name: 'Google Ads',
+        meta: 'Search & Display',
+        description: 'Show up when customers search for what you sell, and retarget visitors who checked out your store.',
+        status: 'available',
+      },
+    ],
+  },
+  {
+    category: 'Local Presence',
+    services: [
+      {
+        name: 'Google My Business',
+        meta: 'Maps & local search',
+        description: 'Get your store listed on Google Maps and local search results, complete with reviews and business hours.',
+        status: 'coming-soon',
+      },
+    ],
+  },
+  {
+    category: 'Marketing',
+    services: [
+      {
+        name: 'Email Marketing',
+        meta: 'Newsletters & promos',
+        description: 'Reach past customers directly with restock alerts, promotions, and seasonal campaigns.',
+        status: 'coming-soon',
+      },
+    ],
+  },
+  {
+    category: 'AI & Automation',
+    services: [
+      {
+        name: 'AI Product Descriptions',
+        meta: 'Auto-generated copy',
+        description: 'Turn a product photo and price into ready-to-use, on-brand descriptions and social captions in seconds.',
+        status: 'coming-soon',
+      },
+    ],
+  },
+  {
+    category: 'Social Sync',
+    services: [
+      {
+        name: 'Instagram & TikTok Sync',
+        meta: 'Auto-post new products',
+        description: 'Keep your Instagram and TikTok shops in step with your storefront — new products post automatically.',
+        status: 'coming-soon',
+      },
+    ],
+  },
 ];
 
 const ORDER_FLOW_STATUSES = [
@@ -439,6 +603,13 @@ function createProductId() {
   return typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `product-${Date.now()}`;
 }
 
+function generateReferralCode() {
+  const random = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID().replace(/-/g, '').slice(0, 8)
+    : Math.random().toString(36).slice(2, 10);
+  return random.toUpperCase();
+}
+
 const emptyProductForm = {
   name: '',
   price: '',
@@ -446,6 +617,8 @@ const emptyProductForm = {
   category: '',
   stock: '',
 };
+
+const LOW_STOCK_THRESHOLD = 3;
 
 let imageItemSeq = 0;
 function nextImageItemId() {
@@ -668,6 +841,17 @@ function ProductManager({ userId, storeInfo, products, onProductsSaved }) {
         : [product, ...products];
 
       await saveProducts(nextProducts);
+
+      // Fires once when stock crosses the threshold going down, not on every save
+      // while it stays low — a new product's "previous" stock counts as
+      // unlimited so it can still alert the first time it's saved low.
+      const previousStock = Number(currentProduct?.stock ?? Infinity);
+      if (stock <= LOW_STOCK_THRESHOLD && previousStock > LOW_STOCK_THRESHOLD) {
+        notifyLowStock({ productName: name, stock }).catch((notifyError) => {
+          console.error('Low stock alert failed:', notifyError);
+        });
+      }
+
       resetForm();
       setSuccess(editingKey ? 'Product updated.' : 'Product added to your store.');
     } catch (uploadError) {
@@ -841,6 +1025,229 @@ function ProductManager({ userId, storeInfo, products, onProductsSaved }) {
               <strong>No products yet.</strong>
               <br />
               Add your first product with an image, price, and stock quantity.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const emptyCouponForm = {
+  code: '',
+  type: 'percent',
+  value: '',
+  expiresAt: '',
+  usageLimit: '',
+  active: true,
+};
+
+function CouponManager({ userId, coupons, onCouponsSaved }) {
+  const [form, setForm] = useState(emptyCouponForm);
+  const [editingCode, setEditingCode] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const updateField = (field, value) => {
+    setForm((current) => ({ ...current, [field]: value }));
+    setError('');
+    setSuccess('');
+  };
+
+  const resetForm = () => {
+    setForm(emptyCouponForm);
+    setEditingCode('');
+  };
+
+  const saveCoupons = async (nextCoupons) => {
+    await setDoc(doc(db, 'stores', userId), { coupons: nextCoupons, updatedAt: serverTimestamp() }, { merge: true });
+    onCouponsSaved(nextCoupons);
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
+    setSuccess('');
+
+    const code = form.code.trim().toUpperCase();
+    const value = Number(form.value);
+
+    if (!code) {
+      setError('Enter a coupon code.');
+      return;
+    }
+    if (!Number.isFinite(value) || value <= 0) {
+      setError('Enter a valid discount value.');
+      return;
+    }
+    if (form.type === 'percent' && value > 100) {
+      setError('Percentage discounts cannot exceed 100.');
+      return;
+    }
+    if (!editingCode && coupons[code]) {
+      setError('A coupon with this code already exists.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const existing = editingCode ? coupons[editingCode] : null;
+      const nextCoupon = {
+        type: form.type,
+        value,
+        expiresAt: form.expiresAt || null,
+        usageLimit: form.usageLimit ? Number(form.usageLimit) : null,
+        usageCount: existing?.usageCount || 0,
+        active: form.active,
+        createdAt: existing?.createdAt || new Date().toISOString(),
+      };
+
+      const nextCoupons = { ...coupons };
+      if (editingCode && editingCode !== code) {
+        delete nextCoupons[editingCode];
+      }
+      nextCoupons[code] = nextCoupon;
+
+      await saveCoupons(nextCoupons);
+      resetForm();
+      setSuccess(editingCode ? 'Coupon updated.' : 'Coupon created.');
+    } catch (saveError) {
+      setError(saveError?.message || 'Coupon could not be saved. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEdit = (code) => {
+    const coupon = coupons[code];
+    setEditingCode(code);
+    setForm({
+      code,
+      type: coupon.type || 'percent',
+      value: coupon.value ?? '',
+      expiresAt: coupon.expiresAt ? String(coupon.expiresAt).slice(0, 10) : '',
+      usageLimit: coupon.usageLimit ?? '',
+      active: coupon.active !== false,
+    });
+    setError('');
+    setSuccess('');
+  };
+
+  const handleDelete = async (code) => {
+    if (!window.confirm(`Delete coupon ${code}?`)) return;
+    setSaving(true);
+    setError('');
+    setSuccess('');
+    try {
+      const nextCoupons = { ...coupons };
+      delete nextCoupons[code];
+      await saveCoupons(nextCoupons);
+      setSuccess('Coupon removed.');
+    } catch (deleteError) {
+      setError(deleteError?.message || 'Coupon could not be removed. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const couponEntries = Object.entries(coupons);
+
+  return (
+    <div className="product-manager">
+      <div className="product-layout">
+        <form className="product-form" onSubmit={handleSubmit}>
+          {editingCode && (
+            <div className="edit-banner">
+              <span>Editing coupon</span>
+              <button type="button" onClick={resetForm} disabled={saving}>Cancel</button>
+            </div>
+          )}
+          <div className="product-form-grid">
+            <label className="field-group">
+              <span>Coupon code</span>
+              <input
+                value={form.code}
+                onChange={(event) => updateField('code', event.target.value.toUpperCase())}
+                placeholder="WELCOME10"
+                disabled={Boolean(editingCode)}
+              />
+            </label>
+            <label className="field-group">
+              <span>Discount type</span>
+              <select value={form.type} onChange={(event) => updateField('type', event.target.value)}>
+                <option value="percent">Percentage off</option>
+                <option value="fixed">Fixed amount off (NGN)</option>
+              </select>
+            </label>
+            <label className="field-group">
+              <span>{form.type === 'percent' ? 'Percent off' : 'Amount off (NGN)'}</span>
+              <input
+                inputMode="decimal"
+                value={form.value}
+                onChange={(event) => updateField('value', event.target.value)}
+                placeholder={form.type === 'percent' ? '10' : '1000'}
+              />
+            </label>
+            <label className="field-group">
+              <span>Expiry date (optional)</span>
+              <input type="date" value={form.expiresAt} onChange={(event) => updateField('expiresAt', event.target.value)} />
+            </label>
+            <label className="field-group">
+              <span>Usage limit (optional)</span>
+              <input inputMode="numeric" value={form.usageLimit} onChange={(event) => updateField('usageLimit', event.target.value)} placeholder="Unlimited" />
+            </label>
+            <label className="field-group coupon-active-toggle">
+              <span>Active</span>
+              <input type="checkbox" checked={form.active} onChange={(event) => updateField('active', event.target.checked)} />
+            </label>
+          </div>
+
+          {error && <div className="form-alert error">{error}</div>}
+          {success && <div className="form-alert success">{success}</div>}
+
+          <button type="submit" className="product-submit" disabled={saving}>
+            {saving ? 'Saving...' : <><IconPlus size={17} /> {editingCode ? 'Save changes' : 'Add coupon'}</>}
+          </button>
+        </form>
+
+        <div className="product-list-card">
+          <div className="card-header">
+            <h3>Coupons</h3>
+            <span className="product-count-pill">{couponEntries.length}</span>
+          </div>
+
+          {couponEntries.length > 0 ? (
+            <div className="coupon-list">
+              {couponEntries.map(([code, coupon]) => (
+                <div className="coupon-row" key={code}>
+                  <div>
+                    <strong>{code}</strong>
+                    <span>{coupon.type === 'percent' ? `${coupon.value}% off` : `${formatCurrency(coupon.value)} off`}</span>
+                  </div>
+                  <div className="coupon-row-meta">
+                    <span className={`partner-status ${coupon.active ? 'available' : 'coming-soon'}`}>
+                      {coupon.active ? 'Active' : 'Paused'}
+                    </span>
+                    <span>{coupon.usageCount || 0}{coupon.usageLimit ? ` / ${coupon.usageLimit}` : ''} used</span>
+                    {coupon.expiresAt && <span>Expires {new Date(coupon.expiresAt).toLocaleDateString()}</span>}
+                  </div>
+                  <div className="product-actions">
+                    <button type="button" className="edit-product" onClick={() => handleEdit(code)} disabled={saving}>
+                      <IconEdit size={15} /> Edit
+                    </button>
+                    <button type="button" className="delete-product" onClick={() => handleDelete(code)} disabled={saving}>
+                      <IconTrash size={15} /> Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <strong>No coupons yet.</strong>
+              <br />
+              Create a code to offer buyers a percentage or fixed discount at checkout.
             </div>
           )}
         </div>
@@ -1457,6 +1864,232 @@ function AppearanceEditor({ userId, storeInfo, onAppearanceSaved, compact = fals
   );
 }
 
+function ReferralsPanel({ userId, storeInfo, storeUrl, orders }) {
+  const [generatedCode, setGeneratedCode] = useState('');
+  const [copied, setCopied] = useState(false);
+  const referralCode = storeInfo.referralCode || generatedCode;
+
+  useEffect(() => {
+    if (referralCode) return;
+
+    let cancelled = false;
+    const code = generateReferralCode();
+    setDoc(doc(db, 'stores', userId), { referralCode: code, updatedAt: serverTimestamp() }, { merge: true })
+      .then(() => {
+        if (!cancelled) setGeneratedCode(code);
+      })
+      .catch((error) => {
+        console.error('Referral code generation failed:', error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [referralCode, userId]);
+
+  const referralLink = referralCode ? `${storeUrl}?ref=${referralCode}` : '';
+
+  const attribution = useMemo(() => {
+    const grouped = new Map();
+    orders.forEach((order) => {
+      const code = order.referralCode;
+      if (!code) return;
+      const entry = grouped.get(code) || { orders: 0, revenue: 0 };
+      entry.orders += 1;
+      entry.revenue += Number(order.total || order.amount || 0);
+      grouped.set(code, entry);
+    });
+    return Array.from(grouped.entries()).map(([code, stats]) => ({ code, ...stats }));
+  }, [orders]);
+
+  const handleCopy = async () => {
+    if (!referralLink) return;
+    try {
+      await navigator.clipboard.writeText(referralLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('Copy failed:', error);
+    }
+  };
+
+  return (
+    <div className="referrals-panel">
+      <p className="partner-intro">
+        Share this link with customers so word-of-mouth referrals are tracked back to the orders they bring in.
+      </p>
+      <label className="field-group">
+        <span>Your referral link</span>
+        <div className="pos-link-row">
+          <input value={referralLink || 'Generating your link…'} readOnly />
+          <button type="button" className="secondary-action" onClick={handleCopy} disabled={!referralLink}>
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+        </div>
+      </label>
+
+      <div className="referrals-orders">
+        <div className="card-header">
+          <h3>Attributed orders</h3>
+        </div>
+        {attribution.length > 0 ? (
+          <div className="detail-list">
+            {attribution.map((entry) => (
+              <div className="detail-row" key={entry.code}>
+                <span>{entry.code}</span>
+                <strong>{entry.orders} order{entry.orders === 1 ? '' : 's'} · {formatCurrency(entry.revenue)}</strong>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state">
+            <strong>No referred orders yet.</strong>
+            <br />
+            Orders placed through your referral link will show up here.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ReviewsManager({ storeSlug }) {
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(Boolean(storeSlug));
+  const [deletingId, setDeletingId] = useState('');
+
+  useEffect(() => {
+    if (!storeSlug) return undefined;
+
+    const reviewsQuery = query(collection(db, 'publicStores', storeSlug, 'reviews'), orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(
+      reviewsQuery,
+      (snapshot) => {
+        setReviews(snapshot.docs.map((reviewDoc) => ({ id: reviewDoc.id, ...reviewDoc.data() })));
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Reviews load failed:', error);
+        setReviews([]);
+        setLoading(false);
+      }
+    );
+
+    return unsubscribe;
+  }, [storeSlug]);
+
+  const handleDelete = async (reviewId) => {
+    if (!window.confirm('Delete this review?')) return;
+    setDeletingId(reviewId);
+    try {
+      await deleteDoc(doc(db, 'publicStores', storeSlug, 'reviews', reviewId));
+    } catch (error) {
+      console.error('Review delete failed:', error);
+    } finally {
+      setDeletingId('');
+    }
+  };
+
+  if (loading) {
+    return <div className="empty-state">Loading reviews…</div>;
+  }
+
+  if (!reviews.length) {
+    return (
+      <div className="empty-state">
+        <strong>No reviews yet.</strong>
+        <br />
+        Reviews customers leave on your products will show up here.
+      </div>
+    );
+  }
+
+  return (
+    <div className="reviews-list">
+      {reviews.map((review) => (
+        <div className="review-row" key={review.id}>
+          <div className="review-row-head">
+            <StarRating value={review.rating} size={15} />
+            <strong>{review.productName || 'Product'}</strong>
+            <span className="review-row-author">by {review.customerName || 'Anonymous'}</span>
+          </div>
+          <p>{review.comment}</p>
+          <button
+            type="button"
+            className="delete-product"
+            onClick={() => handleDelete(review.id)}
+            disabled={deletingId === review.id}
+          >
+            <IconTrash size={15} />
+            {deletingId === review.id ? 'Removing...' : 'Remove'}
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PosPanel({ storeUrl }) {
+  const [qrDataUrl, setQrDataUrl] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    QRCode.toDataURL(storeUrl, { width: 320, margin: 1, color: { dark: '#192328', light: '#ffffff' } })
+      .then((dataUrl) => {
+        if (!cancelled) setQrDataUrl(dataUrl);
+      })
+      .catch((error) => {
+        console.error('QR code generation failed:', error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [storeUrl]);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(storeUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('Copy failed:', error);
+    }
+  };
+
+  return (
+    <div className="pos-panel">
+      <p className="partner-intro">
+        Print or display this QR code at your stall, shop counter, or market table. Customers scan it to open your
+        storefront on their phone and check out on the spot — no card machine needed.
+      </p>
+      <div className="pos-layout">
+        {qrDataUrl && (
+          <div className="pos-qr-card">
+            <img src={qrDataUrl} alt="QR code linking to your storefront" width={220} height={220} />
+          </div>
+        )}
+        <div className="pos-links">
+          <label className="field-group">
+            <span>Your storefront link</span>
+            <div className="pos-link-row">
+              <input value={storeUrl} readOnly />
+              <button type="button" className="secondary-action" onClick={handleCopy}>
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          </label>
+          {qrDataUrl && (
+            <a className="secondary-action pos-download" href={qrDataUrl} download="storefront-qr-code.png">
+              Download QR code
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard({ user, userProfile, onLogout }) {
   const navigate = useNavigate();
   const { tab: tabParam, orderId } = useParams();
@@ -1574,9 +2207,15 @@ export default function Dashboard({ user, userProfile, onLogout }) {
     { id: 'overview', label: 'Overview', icon: IconDashboard },
     { id: 'analytics', label: 'Analytics', icon: IconChart },
     { id: 'products', label: 'Products', icon: IconStore },
+    { id: 'coupons', label: 'Coupons', icon: IconCoupon },
+    { id: 'reviews', label: 'Reviews', icon: IconStar },
     { id: 'business', label: 'Business Info', icon: IconStore },
     { id: 'orders', label: 'Orders', icon: IconOrders },
     { id: 'appearance', label: 'Appearance', icon: IconPalette },
+    { id: 'logistics', label: 'Logistics', icon: IconTruck },
+    { id: 'services', label: 'Services', icon: IconServices },
+    { id: 'referrals', label: 'Referrals', icon: IconShare },
+    { id: 'pos', label: 'Sell in Person', icon: IconQr },
     { id: 'payouts', label: 'Payouts', icon: IconWallet },
     { id: 'billing', label: 'Billing', icon: IconWallet },
   ];
@@ -1673,7 +2312,16 @@ export default function Dashboard({ user, userProfile, onLogout }) {
           display: grid;
           gap: 6px;
           flex: 1;
+          min-height: 0;
           align-content: start;
+          overflow-y: auto;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255,255,255,.2) transparent;
+        }
+        .dashboard-nav::-webkit-scrollbar { width: 6px; }
+        .dashboard-nav::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,.2);
+          border-radius: 999px;
         }
         .nav-item {
           width: 100%;
@@ -1910,6 +2558,122 @@ export default function Dashboard({ user, userProfile, onLogout }) {
           font-size: 14px;
           overflow-wrap: anywhere;
         }
+        .partner-intro {
+          color: var(--slate);
+          font-size: 14px;
+          line-height: 1.5;
+          margin: 0 0 16px;
+          max-width: 640px;
+        }
+        .partner-group + .partner-group { margin-top: 24px; }
+        .partner-group-title {
+          color: var(--ink);
+          font-size: 13px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: .06em;
+          margin: 0 0 10px;
+        }
+        .partner-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+          gap: 14px;
+        }
+        .partner-card {
+          border: 1px solid var(--line);
+          border-radius: 10px;
+          padding: 16px;
+          display: grid;
+          gap: 6px;
+          min-width: 0;
+        }
+        .partner-card-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 4px;
+        }
+        .partner-icon {
+          width: 34px;
+          height: 34px;
+          border-radius: 9px;
+          display: grid;
+          place-items: center;
+          background: rgba(175,255,0,.22);
+          color: #4e7300;
+        }
+        .partner-status {
+          font-size: 11px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: .04em;
+          padding: 4px 9px;
+          border-radius: 999px;
+        }
+        .partner-status.available { background: rgba(175,255,0,.22); color: #4e7300; }
+        .partner-status.coming-soon { background: var(--paper-dim); color: var(--slate); }
+        .partner-card strong { color: var(--ink); font-size: 15px; }
+        .partner-meta { color: var(--slate); font-size: 12px; font-weight: 700; }
+        .partner-card p { color: var(--ink-soft); font-size: 13px; line-height: 1.5; margin: 4px 0 0; }
+        .pos-layout {
+          display: flex;
+          gap: 24px;
+          flex-wrap: wrap;
+          align-items: flex-start;
+        }
+        .pos-qr-card {
+          padding: 16px;
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          background: #fff;
+          flex: 0 0 auto;
+        }
+        .pos-qr-card img { display: block; border-radius: 4px; }
+        .pos-links {
+          display: grid;
+          gap: 14px;
+          min-width: 260px;
+          flex: 1;
+        }
+        .pos-link-row { display: flex; gap: 8px; }
+        .pos-link-row input {
+          flex: 1;
+          min-width: 0;
+          padding: 10px 12px;
+          border: 1px solid var(--line);
+          border-radius: 8px;
+          font: inherit;
+          font-size: 13px;
+          color: var(--ink);
+          background: var(--paper);
+        }
+        .pos-download { width: fit-content; text-decoration: none; }
+        .referrals-orders { margin-top: 24px; }
+        .coupon-active-toggle { flex-direction: row; align-items: center; gap: 8px; }
+        .coupon-active-toggle input[type="checkbox"] { width: auto; }
+        .coupon-list { display: grid; gap: 10px; }
+        .coupon-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          flex-wrap: wrap;
+          padding: 14px;
+          border: 1px solid var(--line);
+          border-radius: 10px;
+        }
+        .coupon-row strong { display: block; color: var(--ink); font-size: 15px; }
+        .coupon-row > div:first-child span { color: var(--slate); font-size: 13px; font-weight: 700; }
+        .coupon-row-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--slate); font-weight: 700; }
+        .star-rating { display: inline-flex; gap: 1px; align-items: center; color: #d99a00; }
+        .star-rating-star { border: 0; background: none; padding: 0; display: inline-flex; color: inherit; }
+        .star-rating-star:not(.filled) { opacity: .35; }
+        .reviews-list { display: grid; gap: 10px; }
+        .review-row { border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+        .review-row-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+        .review-row-head strong { color: var(--ink); font-size: 14px; }
+        .review-row-author { color: var(--slate); font-size: 12px; font-weight: 700; }
+        .review-row p { margin: 0 0 10px; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
         .appearance-editor {
           display: grid;
           grid-template-columns: minmax(0, 1fr) minmax(260px, .72fr);
@@ -2955,6 +3719,28 @@ export default function Dashboard({ user, userProfile, onLogout }) {
             </div>
           )}
 
+          {activeTab === 'coupons' && (
+            <div className="content-card full-span">
+              <div className="card-header">
+                <h3>Coupons</h3>
+              </div>
+              <CouponManager
+                userId={user.uid}
+                coupons={storeInfo.coupons || {}}
+                onCouponsSaved={(nextCoupons) => setStore((current) => ({ ...(current || storeInfo), coupons: nextCoupons }))}
+              />
+            </div>
+          )}
+
+          {activeTab === 'reviews' && (
+            <div className="content-card full-span">
+              <div className="card-header">
+                <h3>Reviews</h3>
+              </div>
+              <ReviewsManager storeSlug={storeSlug} />
+            </div>
+          )}
+
           {(activeTab === 'overview' || activeTab === 'business') && (
             <div className="content-card">
               <div className="card-header">
@@ -2990,6 +3776,87 @@ export default function Dashboard({ user, userProfile, onLogout }) {
                 onAppearanceSaved={(nextStoreInfo) => setStore((current) => ({ ...(current || storeInfo), ...nextStoreInfo }))}
                 compact={activeTab === 'overview'}
               />
+            </div>
+          )}
+
+          {activeTab === 'logistics' && (
+            <div className="content-card full-span">
+              <div className="card-header">
+                <h3>Logistics Partnerships</h3>
+              </div>
+              <p className="partner-intro">
+                Connect your store with a delivery partner so orders get picked up and delivered without you chasing riders.
+                Availability depends on where your store ships from.
+              </p>
+              <div className="partner-grid">
+                {logisticsPartners.map((partner) => (
+                  <div className="partner-card" key={partner.name}>
+                    <div className="partner-card-head">
+                      <div className="partner-icon">
+                        <IconTruck size={20} />
+                      </div>
+                      <span className={`partner-status ${partner.status}`}>
+                        {partner.status === 'available' ? 'Available' : 'Coming soon'}
+                      </span>
+                    </div>
+                    <strong>{partner.name}</strong>
+                    <span className="partner-meta">{partner.coverage}</span>
+                    <p>{partner.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'services' && (
+            <div className="content-card full-span">
+              <div className="card-header">
+                <h3>Additional Services</h3>
+              </div>
+              <p className="partner-intro">
+                Grow beyond your storefront with add-on services — from getting registered to getting found.
+                More services are added regularly.
+              </p>
+              {businessServiceGroups.map((group) => (
+                <div className="partner-group" key={group.category}>
+                  <h4 className="partner-group-title">{group.category}</h4>
+                  <div className="partner-grid">
+                    {group.services.map((service) => (
+                      <div className="partner-card" key={service.name}>
+                        <div className="partner-card-head">
+                          <div className="partner-icon">
+                            <IconServices size={20} />
+                          </div>
+                          <span className={`partner-status ${service.status}`}>
+                            {service.status === 'available' ? 'Available' : 'Coming soon'}
+                          </span>
+                        </div>
+                        <strong>{service.name}</strong>
+                        <span className="partner-meta">{service.meta}</span>
+                        <p>{service.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeTab === 'referrals' && (
+            <div className="content-card full-span">
+              <div className="card-header">
+                <h3>Referrals</h3>
+              </div>
+              <ReferralsPanel userId={user.uid} storeInfo={storeInfo} storeUrl={storeUrl} orders={orders} />
+            </div>
+          )}
+
+          {activeTab === 'pos' && (
+            <div className="content-card full-span">
+              <div className="card-header">
+                <h3>Sell in Person</h3>
+              </div>
+              <PosPanel storeUrl={storeUrl} />
             </div>
           )}
 

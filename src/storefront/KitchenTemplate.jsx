@@ -16,6 +16,7 @@ export default function KitchenTemplate(props) {
     cart, cartCount, cartSubtotal, cartTotal, deliveryFee, freeShippingThreshold, updateQuantity, removeItem,
     cartOpen, setCartOpen, closeCart, mobileMenuOpen, setMobileMenuOpen,
     customer, updateCustomer, handleCheckout, submittingOrder, orderPlaced,
+    whatsappEnabled, handleWhatsAppCheckout, couponCode, setCouponCode,
     newsletterEmail, setNewsletterEmail, handleNewsletterSubmit,
     toasts, dismiss,
   } = props;
@@ -79,6 +80,7 @@ export default function KitchenTemplate(props) {
         .store-cta.secondary { background: transparent; color: var(--store-ink); border: 1.5px solid var(--store-line); }
         .store-cta.secondary:hover { border-color: var(--store-ink); }
         .store-cta.block { width: 100%; border-radius: 10px; }
+        .whatsapp-cta { background: #25D366; color: #fff; margin-top: 4px; }
         .store-cta:disabled { opacity: .55; cursor: not-allowed; transform: none; box-shadow: none; }
         .kitchen-hero-art { position: relative; aspect-ratio: 1 / 1; }
         .kitchen-hero-frame { position: absolute; inset: 0; border-radius: 20px; overflow: hidden; box-shadow: 0 30px 60px -22px rgba(43,24,16,.32); background: color-mix(in srgb, var(--store-accent) 14%, var(--store-card)); }
@@ -310,6 +312,10 @@ export default function KitchenTemplate(props) {
         onContinueShopping={closeCart}
         checkoutLabel={copy.checkoutLabel}
         formatCurrency={formatCurrency}
+        whatsappEnabled={whatsappEnabled}
+        onWhatsAppCheckout={handleWhatsAppCheckout}
+        couponCode={couponCode}
+        onCouponCodeChange={setCouponCode}
       />
 
       <ProductDetail
@@ -322,6 +328,7 @@ export default function KitchenTemplate(props) {
         onClose={() => setSelectedProduct(null)}
         onAddToCart={(quantity) => addToCart(selectedProduct, quantity)}
         onToggleWish={() => toggleWishlist(selectedProduct)}
+        storeSlug={store.storeSlug}
       />
 
       <ToastStack toasts={toasts} onDismiss={dismiss} />

@@ -1,4 +1,4 @@
-import { StoreIcon } from './icons';
+import { StoreIcon, SocialIcon } from './icons';
 import { nigerianStates } from '../nigerianStates';
 
 export default function CartDrawer({
@@ -20,6 +20,10 @@ export default function CartDrawer({
   onContinueShopping,
   checkoutLabel,
   formatCurrency,
+  whatsappEnabled,
+  onWhatsAppCheckout,
+  couponCode,
+  onCouponCodeChange,
 }) {
   const remainingForFreeDelivery = Math.max(0, freeShippingThreshold - cartSubtotal);
   const freeDeliveryProgress = Math.min(100, freeShippingThreshold ? (cartSubtotal / freeShippingThreshold) * 100 : 0);
@@ -92,6 +96,18 @@ export default function CartDrawer({
                 <div className="cart-total-row grand"><span>Total</span><span>{formatCurrency(freeDeliveryUnlocked ? cartSubtotal : cartTotal)}</span></div>
               </div>
 
+              {typeof couponCode === 'string' && (
+                <div className="cart-coupon-row">
+                  <input
+                    value={couponCode}
+                    onChange={(event) => onCouponCodeChange(event.target.value.toUpperCase())}
+                    placeholder="Coupon code (optional)"
+                    className="cart-coupon-input"
+                  />
+                  <p className="cart-coupon-hint">Valid codes are applied when you continue to payment.</p>
+                </div>
+              )}
+
               <form className="cart-checkout-form" onSubmit={onSubmit}>
                 <input value={customer.name} onChange={(event) => onCustomerChange('name', event.target.value)} placeholder="Your name" />
                 <input type="email" value={customer.email} onChange={(event) => onCustomerChange('email', event.target.value)} placeholder="Email (for your payment receipt)" />
@@ -108,6 +124,16 @@ export default function CartDrawer({
                 <button type="submit" className="store-cta block" disabled={submitting || !cart.length}>
                   {submitting ? 'Redirecting to payment...' : checkoutLabel}
                 </button>
+                {whatsappEnabled && (
+                  <button
+                    type="button"
+                    className="store-cta block whatsapp-cta"
+                    onClick={onWhatsAppCheckout}
+                    disabled={!cart.length}
+                  >
+                    <SocialIcon type="whatsapp" size={16} /> Order via WhatsApp instead
+                  </button>
+                )}
               </form>
             </div>
           </div>

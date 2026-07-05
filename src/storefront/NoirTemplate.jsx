@@ -16,6 +16,7 @@ export default function NoirTemplate(props) {
     cart, cartCount, cartSubtotal, cartTotal, deliveryFee, freeShippingThreshold, updateQuantity, removeItem,
     cartOpen, setCartOpen, closeCart, mobileMenuOpen, setMobileMenuOpen,
     customer, updateCustomer, handleCheckout, submittingOrder, orderPlaced,
+    whatsappEnabled, handleWhatsAppCheckout, couponCode, setCouponCode,
     newsletterEmail, setNewsletterEmail, handleNewsletterSubmit,
     toasts, dismiss,
   } = props;
@@ -85,6 +86,7 @@ export default function NoirTemplate(props) {
         .store-cta.secondary { background: transparent; color: #F5F5F2; border: 1.5px solid rgba(245,245,242,.32); }
         .store-cta.secondary:hover { border-color: #F5F5F2; }
         .store-cta.block { width: 100%; }
+        .whatsapp-cta { background: #25D366; color: #fff; margin-top: 4px; }
         .store-cta:disabled { opacity: .55; cursor: not-allowed; transform: none; box-shadow: none; }
 
         .noir-strip { border-bottom: 1px solid var(--store-line); background: var(--store-card); }
@@ -304,6 +306,10 @@ export default function NoirTemplate(props) {
         onContinueShopping={closeCart}
         checkoutLabel={copy.checkoutLabel}
         formatCurrency={formatCurrency}
+        whatsappEnabled={whatsappEnabled}
+        onWhatsAppCheckout={handleWhatsAppCheckout}
+        couponCode={couponCode}
+        onCouponCodeChange={setCouponCode}
       />
 
       <ProductDetail
@@ -317,6 +323,7 @@ export default function NoirTemplate(props) {
         onAddToCart={(quantity) => addToCart(selectedProduct, quantity)}
         onToggleWish={() => toggleWishlist(selectedProduct)}
         shareUrl={productShareUrl}
+        storeSlug={store.storeSlug}
       />
 
       <ToastStack toasts={toasts} onDismiss={dismiss} />

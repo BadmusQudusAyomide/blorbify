@@ -49,6 +49,7 @@ export const env = {
   mailFrom: process.env.MAIL_FROM || 'Blorbify <no-reply@blorbify.com>',
   resendApiKey: process.env.RESEND_API_KEY || '',
   resendFrom: process.env.RESEND_FROM || '',
+  platformReportEmail: process.env.PLATFORM_REPORT_EMAIL || 'blorbmart@gmail.com',
 };
 
 export function isProduction() {

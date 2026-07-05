@@ -16,6 +16,7 @@ export default function SignatureTemplate(props) {
     cart, cartCount, cartSubtotal, cartTotal, deliveryFee, freeShippingThreshold, updateQuantity, removeItem,
     cartOpen, setCartOpen, closeCart, mobileMenuOpen, setMobileMenuOpen,
     customer, updateCustomer, handleCheckout, submittingOrder, orderPlaced,
+    whatsappEnabled, handleWhatsAppCheckout, couponCode, setCouponCode,
     newsletterEmail, setNewsletterEmail, handleNewsletterSubmit,
     toasts, dismiss,
   } = props;
@@ -81,6 +82,7 @@ export default function SignatureTemplate(props) {
         .store-cta.secondary { background: transparent; color: var(--store-ink); border: 1.5px solid var(--store-line); }
         .store-cta.secondary:hover { border-color: var(--store-ink); }
         .store-cta.block { width: 100%; }
+        .whatsapp-cta { background: #25D366; color: #fff; margin-top: 4px; }
         .store-cta:disabled { opacity: .55; cursor: not-allowed; transform: none; box-shadow: none; }
         .store-trust-row { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 30px; }
         .store-trust-row .item { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; color: var(--store-muted); }
@@ -321,6 +323,10 @@ export default function SignatureTemplate(props) {
         onContinueShopping={closeCart}
         checkoutLabel={copy.checkoutLabel}
         formatCurrency={formatCurrency}
+        whatsappEnabled={whatsappEnabled}
+        onWhatsAppCheckout={handleWhatsAppCheckout}
+        couponCode={couponCode}
+        onCouponCodeChange={setCouponCode}
       />
 
       <ProductDetail
@@ -334,6 +340,7 @@ export default function SignatureTemplate(props) {
         onAddToCart={(quantity) => addToCart(selectedProduct, quantity)}
         onToggleWish={() => toggleWishlist(selectedProduct)}
         shareUrl={productShareUrl}
+        storeSlug={store.storeSlug}
       />
 
       <ToastStack toasts={toasts} onDismiss={dismiss} />

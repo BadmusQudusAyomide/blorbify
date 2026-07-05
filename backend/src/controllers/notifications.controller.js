@@ -6,6 +6,7 @@ import {
   queueOrderNotification,
   queueNotification,
   sendEmail,
+  sendLowStockEmail,
   sendOrderStatusEmail,
 } from '../services/notification.service.js';
 import { escapeHtml, getDashboardUrl, renderEmailCodePill, renderEmailLayout } from '../utils/emailTemplate.js';
@@ -78,5 +79,32 @@ export const sendOrderStatusUpdate = asyncHandler(async (req, res) => {
   }
 
   const result = await sendOrderStatusEmail({ order, status, storeName: order.storeName });
+  return ok(res, { data: result });
+});
+
+export const sendLowStockAlert = asyncHandler(async (req, res) => {
+  const { productName, stock } = req.body || {};
+  if (!productName || stock === undefined) {
+    throw createHttpError(400, 'productName and stock are required.');
+  }
+
+  let toEmail = req.user?.email || '';
+  let storeName = '';
+
+  const userSnap = await adminDb.collection('users').doc(req.user.uid).get();
+  if (userSnap.exists) {
+    const userData = userSnap.data();
+    toEmail = toEmail || userData.email || '';
+    storeName = userData.businessName || '';
+  }
+
+  if (!storeName) {
+    const storeSnap = await adminDb.collection('stores').doc(req.user.uid).get();
+    if (storeSnap.exists) {
+      storeName = storeSnap.data().businessName || '';
+    }
+  }
+
+  const result = await sendLowStockEmail({ toEmail, storeName, productName, stock: Number(stock) });
   return ok(res, { data: result });
 });

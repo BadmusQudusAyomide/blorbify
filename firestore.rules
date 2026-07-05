@@ -33,6 +33,35 @@ service cloud.firestore {
       allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
     }
 
+    match /publicStores/{storeSlug}/reviews/{reviewId} {
+      allow read: if get(/databases/$(database)/documents/publicStores/$(storeSlug)).data.published == true
+        || isOwner(get(/databases/$(database)/documents/publicStores/$(storeSlug)).data.ownerId);
+      allow create: if request.resource.data.keys().hasAll(['productId', 'rating', 'comment', 'customerName', 'createdAt'])
+        && request.resource.data.productId is string && request.resource.data.productId.size() > 0
+        && request.resource.data.rating is int && request.resource.data.rating >= 1 && request.resource.data.rating <= 5
+        && request.resource.data.comment is string && request.resource.data.comment.size() <= 500
+        && request.resource.data.customerName is string && request.resource.data.customerName.size() <= 80
+        && exists(/databases/$(database)/documents/publicStores/$(storeSlug))
+        && get(/databases/$(database)/documents/publicStores/$(storeSlug)).data.published == true;
+      allow update, delete: if isSignedIn()
+        && get(/databases/$(database)/documents/publicStores/$(storeSlug)).data.ownerId == request.auth.uid;
+    }
+
+    // Abandoned-cart snapshots written by anonymous storefront visitors so the
+    // backend can nudge them by email later. No `read` rule at all — buyer
+    // emails/carts here must not be exposed to the public, only the backend's
+    // admin SDK (which bypasses rules) reads this collection.
+    match /cartSnapshots/{snapshotId} {
+      allow read: if false;
+      allow create, update: if request.resource.data.keys().hasAll(['storeSlug', 'customerEmail', 'items', 'updatedAt'])
+        && request.resource.data.storeSlug is string && request.resource.data.storeSlug.size() > 0
+        && request.resource.data.customerEmail is string && request.resource.data.customerEmail.size() > 0
+        && request.resource.data.items is list
+        && exists(/databases/$(database)/documents/publicStores/$(request.resource.data.storeSlug))
+        && get(/databases/$(database)/documents/publicStores/$(request.resource.data.storeSlug)).data.published == true;
+      allow delete: if true;
+    }
+
     match /orders/{orderId} {
       allow read: if isSignedIn() && resource.data.storeId == request.auth.uid;
       allow create: if request.resource.data.keys().hasAll([

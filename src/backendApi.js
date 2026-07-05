@@ -147,3 +147,11 @@ export async function notifyOrderStatusUpdate({ orderId, status }, token) {
     body: { orderId, status },
   });
 }
+
+export async function notifyLowStock({ productName, stock }, token) {
+  return backendRequest('/notifications/low-stock', {
+    method: 'POST',
+    token,
+    body: { productName, stock },
+  });
+}

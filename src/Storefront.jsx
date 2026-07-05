@@ -5,8 +5,10 @@ import { db } from './firebase';
 import { getReadableTextColor, getStoreCopy, getStoreSocialLinks, getStoreTemplate, getTemplateTheme } from './storeTemplates';
 import { createStoreSlug } from './storeLinks';
 import { useCart, productKey } from './storefront/useCart';
+import { useCartSnapshotSync } from './storefront/useCartSnapshotSync';
 import { useToasts } from './storefront/useToasts';
-import { formatCurrency, getSocialHref, getBusinessTypeLabel } from './storefront/storefrontUtils';
+import { formatCurrency, getSocialHref, getBusinessTypeLabel, getWhatsAppOrderHref } from './storefront/storefrontUtils';
+import { getStoredReferral, storeReferral } from './storefront/referralTracking';
 import { getBackendOrigin, initializeSellerOrderPayment, verifySellerOrderPayment } from './backendApi';
 import SignatureTemplate from './storefront/SignatureTemplate';
 import NoirTemplate from './storefront/NoirTemplate';
@@ -32,11 +34,37 @@ function redirectTo(url) {
   window.location.href = url;
 }
 
+function buildOrderItems(cart) {
+  return cart.map((item) => ({
+    productId: item.id,
+    name: item.name,
+    price: Number(item.price || 0),
+    quantity: item.quantity,
+    imageUrl: item.imageUrl || '',
+    subtotal: Number(item.price || 0) * item.quantity,
+  }));
+}
+
+function buildWhatsAppOrderMessage({ storeName, name, phone, items, total, note }) {
+  const lines = [
+    `Hi ${storeName || 'there'}, I'd like to order:`,
+    '',
+    ...items.map((item) => `• ${item.quantity} x ${item.name} — ${formatCurrency(item.subtotal)}`),
+    '',
+    `Total: ${formatCurrency(total)}`,
+    `Name: ${name}`,
+    `Phone: ${phone}`,
+  ];
+  if (note) lines.push(`Note: ${note}`);
+  return lines.join('\n');
+}
+
 export default function Storefront({ slug }) {
   const [store, setStore] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [customer, setCustomer] = useState({ name: '', email: '', phone: '', whatsapp: '', location: '', address: '', note: '' });
+  const [couponCode, setCouponCode] = useState('');
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
@@ -49,6 +77,7 @@ export default function Storefront({ slug }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [initialProductApplied, setInitialProductApplied] = useState(false);
   const appliedOrderReferenceRef = useRef(false);
+  const appliedReferralRef = useRef(false);
 
   const { toasts, notify, dismiss } = useToasts();
 
@@ -132,6 +161,22 @@ export default function Storefront({ slug }) {
     ? `${window.location.origin}/${store?.storeSlug || slug}?${new URLSearchParams({ product: productKey(selectedProduct) }).toString()}`
     : '';
 
+  // Captures a `?ref=CODE` shared link once per visit, persists it for this store,
+  // then strips it from the URL so it doesn't linger when the buyer shares/reloads.
+  useEffect(() => {
+    if (loading) return;
+    if (appliedReferralRef.current) return;
+    appliedReferralRef.current = true;
+
+    const referralCode = searchParams.get('ref');
+    if (referralCode) {
+      storeReferral(store?.storeSlug || slug, referralCode);
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('ref');
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [loading, searchParams, setSearchParams, slug, store]);
+
   const { cart, cartCount, cartSubtotal, addToCart, updateQuantity, removeItem, clearCart } = useCart(store?.storeSlug || slug, {
     onAdd: (product, quantity) => {
       const phrase = addToCartPhrases[Math.floor(Math.random() * addToCartPhrases.length)];
@@ -139,6 +184,15 @@ export default function Storefront({ slug }) {
     },
     onRemove: (item) => notify(`Removed ${item.name} from your cart`, { type: 'info' }),
     onLimit: (product) => notify(`That's all the ${product.name} we have in stock`, { type: 'error' }),
+  });
+
+  const { clearSnapshot } = useCartSnapshotSync({
+    storeSlug: store?.storeSlug || slug,
+    published: Boolean(store),
+    cart,
+    cartSubtotal,
+    storeName: store?.businessName,
+    customer,
   });
 
   // Picks up the ?reference= param Paystack's callback redirects back with
@@ -160,6 +214,7 @@ export default function Storefront({ slug }) {
         const status = String(response?.data?.verification?.status || '').toLowerCase();
         if (['success', 'paid', 'completed'].includes(status)) {
           clearCart();
+          clearSnapshot();
           setOrderPlaced(true);
         } else {
           notify("We're still confirming your payment — check back shortly.", { type: 'info' });
@@ -181,7 +236,7 @@ export default function Storefront({ slug }) {
     return () => {
       active = false;
     };
-  }, [loading, searchParams, setSearchParams, clearCart, notify]);
+  }, [loading, searchParams, setSearchParams, clearCart, clearSnapshot, notify]);
 
   const deliveryFee = Number(store?.deliveryFee || 0);
   const cartTotal = cartSubtotal + (cart.length ? deliveryFee : 0);
@@ -251,14 +306,7 @@ export default function Storefront({ slug }) {
 
     setSubmittingOrder(true);
     try {
-      const orderItems = cart.map((item) => ({
-        productId: item.id,
-        name: item.name,
-        price: Number(item.price || 0),
-        quantity: item.quantity,
-        imageUrl: item.imageUrl || '',
-        subtotal: Number(item.price || 0) * item.quantity,
-      }));
+      const orderItems = buildOrderItems(cart);
 
       const orderRef = await addDoc(collection(db, 'orders'), {
         storeId: store.ownerId,
@@ -276,6 +324,7 @@ export default function Storefront({ slug }) {
         deliveryFee,
         total: cartTotal,
         status: 'pending',
+        referralCode: getStoredReferral(store.storeSlug || slug) || '',
         createdAt: serverTimestamp(),
       });
 
@@ -290,6 +339,7 @@ export default function Storefront({ slug }) {
         buyerPhone: phone,
         buyerAddress: address,
         note: customer.note.trim(),
+        couponCode: couponCode.trim(),
       });
 
       const authorizationUrl = response?.data?.paystack?.authorization_url;
@@ -300,9 +350,74 @@ export default function Storefront({ slug }) {
       redirectTo(authorizationUrl);
     } catch (error) {
       console.error('Order creation failed:', error);
-      notify('Your order could not be placed — please try again', { type: 'error' });
+      // Coupon validation failures come back as a 400 with a specific message
+      // (e.g. "This coupon code has expired.") — surface that instead of a
+      // generic failure so the buyer knows what to fix.
+      notify(error?.status === 400 && error.message ? error.message : 'Your order could not be placed — please try again', { type: 'error' });
       setSubmittingOrder(false);
     }
+  };
+
+  const whatsappEnabled = Boolean(getWhatsAppOrderHref(store?.whatsapp, 'x'));
+
+  // Skips Paystack entirely — opens a prefilled WhatsApp chat with the seller so
+  // payment/delivery details are worked out over chat, common for informal orders.
+  const handleWhatsAppCheckout = () => {
+    if (!cart.length) {
+      notify('Add at least one product to your cart first', { type: 'error' });
+      return;
+    }
+
+    const name = customer.name.trim();
+    const phone = customer.phone.trim();
+    if (!name || !phone) {
+      notify('We need your name and phone number to arrange your order over WhatsApp', { type: 'error' });
+      return;
+    }
+
+    const orderItems = buildOrderItems(cart);
+    const message = buildWhatsAppOrderMessage({
+      storeName: store.businessName,
+      name,
+      phone,
+      items: orderItems,
+      total: cartTotal,
+      note: customer.note.trim(),
+    });
+    const whatsappHref = getWhatsAppOrderHref(store.whatsapp, message);
+    if (!whatsappHref) {
+      notify('This seller has not set up WhatsApp ordering yet', { type: 'error' });
+      return;
+    }
+
+    window.open(whatsappHref, '_blank', 'noopener,noreferrer');
+
+    addDoc(collection(db, 'orders'), {
+      storeId: store.ownerId,
+      storeSlug: store.storeSlug,
+      storeName: store.businessName,
+      customerName: name,
+      customerEmail: customer.email.trim(),
+      customerPhone: phone,
+      customerWhatsapp: customer.whatsapp.trim() || phone,
+      customerLocation: customer.location,
+      customerAddress: customer.address.trim(),
+      customerNote: customer.note.trim(),
+      items: orderItems,
+      subtotal: cartSubtotal,
+      deliveryFee,
+      total: cartTotal,
+      status: 'pending',
+      paymentMethod: 'whatsapp',
+      referralCode: getStoredReferral(store.storeSlug || slug) || '',
+      createdAt: serverTimestamp(),
+    }).catch((error) => {
+      console.error('WhatsApp order record failed:', error);
+    });
+
+    clearCart();
+    clearSnapshot();
+    setOrderPlaced(true);
   };
 
   const handleNewsletterSubmit = (event) => {
@@ -394,9 +509,13 @@ export default function Storefront({ slug }) {
     setMobileMenuOpen,
     customer,
     updateCustomer,
+    couponCode,
+    setCouponCode,
     handleCheckout,
     submittingOrder,
     orderPlaced,
+    whatsappEnabled,
+    handleWhatsAppCheckout,
     newsletterEmail,
     setNewsletterEmail,
     handleNewsletterSubmit,
