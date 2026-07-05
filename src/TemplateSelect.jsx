@@ -28,7 +28,7 @@ export default function Step2_TemplateSelect({ formData, updateFormData, onNext,
   return (
     <div className="step-card">
       <style>{`
-        .template-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 18px 0 22px; }
+        .template-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 18px 0 22px; }
         .template-card { border: 2px solid transparent; border-radius: 20px; overflow: hidden; cursor: pointer; transition: all 0.25s ease; background: #fff; box-shadow: 0 10px 24px rgba(0,0,0,0.05); }
         .template-card:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(0,0,0,0.09); }
         .template-card.selected { border-color: var(--tc-accent, #AFFF00); box-shadow: 0 0 0 4px color-mix(in srgb, var(--tc-accent, #AFFF00) 22%, transparent); }
@@ -40,6 +40,17 @@ export default function Step2_TemplateSelect({ formData, updateFormData, onNext,
         .preview-noir .swatch { grid-row: 1 / 4; width: auto; height: auto; border-radius: 4px; background: linear-gradient(150deg, color-mix(in srgb, var(--tc-accent) 30%, var(--tc-ink)), var(--tc-ink)); }
         .preview-noir .line-lg { align-self: end; border-radius: 4px; text-transform: uppercase; }
         .preview-noir .line-sm { border-radius: 4px; background: var(--tc-accent); height: 7px; width: 40%; }
+        .preview-bloom { background: color-mix(in srgb, var(--tc-accent) 14%, var(--tc-surface)); justify-items: center; text-align: center; }
+        .preview-bloom .swatch { width: 52px; height: 52px; border-radius: 50%; }
+        .preview-bloom .line-lg, .preview-bloom .line-sm { justify-self: center; }
+        .preview-kitchen { grid-template-rows: auto auto auto; align-content: center; gap: 6px; }
+        .preview-kitchen .swatch { width: 100%; height: 14px; border-radius: 4px; }
+        .preview-kitchen .line-lg { height: 10px; border-radius: 3px; }
+        .preview-kitchen .line-sm { height: 8px; border-radius: 3px; background: var(--tc-accent); }
+        .preview-atelier { background: color-mix(in srgb, var(--tc-accent) 10%, var(--tc-surface)); }
+        .preview-atelier .swatch { transform: rotate(-4deg); border-radius: 2px; box-shadow: 0 8px 14px -8px rgba(0,0,0,.3); }
+        .preview-atelier .line-lg { border-radius: 2px; }
+        .preview-atelier .line-sm { border-radius: 2px; }
         .template-info { padding: 13px 15px; }
         .template-info h4 { font-size: 15px; font-weight: 800; color: #192328; margin: 0 0 4px; }
         .template-info p { font-size: 12.5px; color: #5C6B6E; line-height: 1.45; margin: 0; }
@@ -54,7 +65,8 @@ export default function Step2_TemplateSelect({ formData, updateFormData, onNext,
         .btn-back { background: transparent; border: 1px solid rgba(25,35,40,0.12); color: #5C6B6E; padding: 12px 20px; border-radius: 999px; font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.25s ease; font-family: 'Raleway', sans-serif; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
         .btn-back:hover { border-color: #192328; color: #192328; }
         .btn-next { min-width: 160px; }
-        @media (max-width: 640px) { .template-grid { grid-template-columns: 1fr; } .btn-group { flex-direction: column-reverse; } .btn-back, .btn-next { width: 100%; justify-content: center; } }
+        @media (max-width: 780px) { .template-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 480px) { .template-grid { grid-template-columns: 1fr; } .btn-group { flex-direction: column-reverse; } .btn-back, .btn-next { width: 100%; justify-content: center; } }
       `}</style>
 
       <div className="step-title"><IconPalette size={20} style={{ display: 'inline-block', marginRight: 8, verticalAlign: 'middle' }} /> Choose your store design</div>

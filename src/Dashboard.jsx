@@ -14,6 +14,7 @@ import { buildPublicStorePayload } from './publicStore';
 import { getProductImages, getProductCoverImage, MAX_PRODUCT_IMAGES } from './productImages';
 import SellerPayoutPanel from './SellerPayoutPanel';
 import BillingPanel from './BillingPanel';
+import AnalyticsPanel from './AnalyticsPanel';
 import {
   colorPresets,
   defaultStoreCopy,
@@ -60,6 +61,13 @@ const IconOrders = (props) => (
   <IconBase {...props}>
     <path d="M6.5 4.5h11a1.5 1.5 0 0 1 1.5 1.5v14l-3-1.8-3 1.8-3-1.8-3 1.8V6a1.5 1.5 0 0 1 1.5-1.5Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
     <path d="M9 9h6M9 12.5h6M9 16h3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+  </IconBase>
+);
+
+const IconChart = (props) => (
+  <IconBase {...props}>
+    <path d="M4 20V10M10 20V4M16 20v-7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M3.5 20h17" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
   </IconBase>
 );
 
@@ -1182,6 +1190,7 @@ export default function Dashboard({ user, userProfile, onLogout }) {
   const [profile, setProfile] = useState(userProfile || null);
   const [store, setStore] = useState(null);
   const [orders, setOrders] = useState([]);
+  const [analyticsOrders, setAnalyticsOrders] = useState([]);
   const [loading, setLoading] = useState(Boolean(user?.uid));
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
@@ -1195,6 +1204,7 @@ export default function Dashboard({ user, userProfile, onLogout }) {
     const userRef = doc(db, 'users', user.uid);
     const storeRef = doc(db, 'stores', user.uid);
     const ordersQuery = query(collection(db, 'orders'), where('storeId', '==', user.uid), limit(8));
+    const analyticsOrdersQuery = query(collection(db, 'orders'), where('storeId', '==', user.uid), limit(500));
 
     const unsubscribeUser = onSnapshot(
       userRef,
@@ -1234,10 +1244,22 @@ export default function Dashboard({ user, userProfile, onLogout }) {
       }
     );
 
+    const unsubscribeAnalyticsOrders = onSnapshot(
+      analyticsOrdersQuery,
+      (snapshot) => {
+        setAnalyticsOrders(snapshot.docs.map((orderDoc) => ({ id: orderDoc.id, ...orderDoc.data() })));
+      },
+      (error) => {
+        console.error('Dashboard analytics orders load failed:', error);
+        setAnalyticsOrders([]);
+      }
+    );
+
     return () => {
       unsubscribeUser();
       unsubscribeStore();
       unsubscribeOrders();
+      unsubscribeAnalyticsOrders();
     };
   }, [user?.uid]);
 
@@ -1272,6 +1294,7 @@ export default function Dashboard({ user, userProfile, onLogout }) {
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: IconDashboard },
+    { id: 'analytics', label: 'Analytics', icon: IconChart },
     { id: 'products', label: 'Products', icon: IconStore },
     { id: 'business', label: 'Business Info', icon: IconStore },
     { id: 'orders', label: 'Orders', icon: IconOrders },
@@ -1631,7 +1654,7 @@ export default function Dashboard({ user, userProfile, onLogout }) {
         }
         .template-choice-grid {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 10px;
         }
         .template-choice {
@@ -1713,6 +1736,44 @@ export default function Dashboard({ user, userProfile, onLogout }) {
           border-radius: 3px;
           background: var(--preview-accent);
           height: 7px;
+        }
+        .template-swatch.preview-bloom {
+          justify-items: center;
+          text-align: center;
+          background: color-mix(in srgb, var(--preview-accent) 14%, var(--preview-surface));
+        }
+        .template-swatch.preview-bloom i {
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
+        }
+        .template-swatch.preview-bloom b,
+        .template-swatch.preview-bloom em {
+          justify-self: center;
+        }
+        .template-swatch.preview-kitchen {
+          grid-template-rows: auto auto auto;
+          align-content: center;
+          gap: 5px;
+        }
+        .template-swatch.preview-kitchen i {
+          width: 100%;
+          height: 10px;
+          border-radius: 3px;
+        }
+        .template-swatch.preview-kitchen b { height: 8px; border-radius: 3px; }
+        .template-swatch.preview-kitchen em { height: 6px; border-radius: 3px; background: var(--preview-accent); }
+        .template-swatch.preview-atelier {
+          background: color-mix(in srgb, var(--preview-accent) 10%, var(--preview-surface));
+        }
+        .template-swatch.preview-atelier i {
+          transform: rotate(-4deg);
+          border-radius: 2px;
+          box-shadow: 0 6px 10px -6px rgba(0,0,0,.3);
+        }
+        .template-swatch.preview-atelier b,
+        .template-swatch.preview-atelier em {
+          border-radius: 2px;
         }
         .color-choice-grid {
           display: flex;
@@ -2368,6 +2429,10 @@ export default function Dashboard({ user, userProfile, onLogout }) {
         </section>
 
         <section className="content-grid">
+          {activeTab === 'analytics' && (
+            <AnalyticsPanel orders={analyticsOrders} products={products} formatCurrency={formatCurrency} />
+          )}
+
           {activeTab === 'products' && (
             <div className="content-card full-span">
               <div className="card-header">

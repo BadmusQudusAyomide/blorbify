@@ -3,10 +3,16 @@ import { getReadableTextColor, getStoreCopy, getStoreSocialLinks, getStoreTempla
 import { formatCurrency, getSocialHref, getBusinessTypeLabel } from './storefrontUtils';
 import SignatureTemplate from './SignatureTemplate';
 import NoirTemplate from './NoirTemplate';
+import BloomTemplate from './BloomTemplate';
+import KitchenTemplate from './KitchenTemplate';
+import AtelierTemplate from './AtelierTemplate';
 
 const templateComponents = {
   signature: SignatureTemplate,
   noir: NoirTemplate,
+  bloom: BloomTemplate,
+  kitchen: KitchenTemplate,
+  atelier: AtelierTemplate,
 };
 
 const noop = () => {};

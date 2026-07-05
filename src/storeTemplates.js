@@ -24,7 +24,46 @@ export const noirTemplate = {
   layout: 'noir',
 };
 
-export const storeTemplates = [signatureTemplate, noirTemplate];
+export const bloomTemplate = {
+  id: 'bloom',
+  name: 'Bloom',
+  description: 'A soft, calming storefront with rounded product cards — for beauty, skincare, and wellness brands.',
+  accent: '#C98A82',
+  surface: '#FBF3EF',
+  ink: '#3A2E2C',
+  card: '#FFFFFF',
+  button: '#C98A82',
+  buttonText: '#FFFFFF',
+  layout: 'bloom',
+};
+
+export const kitchenTemplate = {
+  id: 'kitchen',
+  name: 'Kitchen',
+  description: 'A warm, appetizing storefront styled like a menu — for food, drinks, and home kitchens.',
+  accent: '#C1440E',
+  surface: '#FFF8F0',
+  ink: '#2B1810',
+  card: '#FFFFFF',
+  button: '#C1440E',
+  buttonText: '#FFF8F0',
+  layout: 'kitchen',
+};
+
+export const atelierTemplate = {
+  id: 'atelier',
+  name: 'Atelier',
+  description: 'A warm, artisanal storefront that puts your story first — for handmade goods and makers.',
+  accent: '#A8752E',
+  surface: '#F5EFE6',
+  ink: '#3E2F25',
+  card: '#FBF6EE',
+  button: '#3E2F25',
+  buttonText: '#F5EFE6',
+  layout: 'atelier',
+};
+
+export const storeTemplates = [signatureTemplate, noirTemplate, bloomTemplate, kitchenTemplate, atelierTemplate];
 
 export const colorPresets = [
   '#AFFF00',

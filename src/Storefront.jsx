@@ -8,6 +8,9 @@ import { useToasts } from './storefront/useToasts';
 import { formatCurrency, getSocialHref, getBusinessTypeLabel } from './storefront/storefrontUtils';
 import SignatureTemplate from './storefront/SignatureTemplate';
 import NoirTemplate from './storefront/NoirTemplate';
+import BloomTemplate from './storefront/BloomTemplate';
+import KitchenTemplate from './storefront/KitchenTemplate';
+import AtelierTemplate from './storefront/AtelierTemplate';
 
 const addToCartPhrases = [
   (name) => `${name} added to your bag`,
@@ -18,6 +21,9 @@ const addToCartPhrases = [
 const templateComponents = {
   signature: SignatureTemplate,
   noir: NoirTemplate,
+  bloom: BloomTemplate,
+  kitchen: KitchenTemplate,
+  atelier: AtelierTemplate,
 };
 
 export default function Storefront({ slug }) {
