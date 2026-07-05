@@ -1868,6 +1868,27 @@ export default function Dashboard({ user, userProfile, onLogout }) {
           top: 16px;
           display: grid;
           gap: 10px;
+          align-self: start;
+        }
+        .preview-col-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+        .preview-toggle {
+          border: 1px solid var(--line);
+          background: #fff;
+          color: var(--ink);
+          border-radius: 999px;
+          padding: 5px 12px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .preview-toggle:hover {
+          border-color: var(--slate);
         }
         .preview-hint {
           margin: 0;
@@ -2381,6 +2402,7 @@ export default function Dashboard({ user, userProfile, onLogout }) {
           .product-layout,
           .appearance-editor { grid-template-columns: 1fr; }
           .media-grid { grid-template-columns: 1fr; }
+          .appearance-preview-col { position: static; top: auto; }
         }
         @media (max-width: 780px) {
           .dashboard-sidebar { transform: translateX(-100%); }
