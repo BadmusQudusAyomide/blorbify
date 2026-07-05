@@ -194,16 +194,57 @@ const nigerianStates = [
 ];
 
 function OrderRow({ order }) {
+  const [expanded, setExpanded] = useState(false);
+  const items = Array.isArray(order.items) ? order.items : [];
+
   return (
-    <div className="order-row">
-      <div>
-        <strong>{order.customerName || order.customer?.name || 'Customer'}</strong>
-        <span>{order.id ? `#${order.id.slice(0, 8)}` : 'New order'}</span>
-      </div>
-      <div>
-        <strong>{formatCurrency(order.total || order.amount)}</strong>
-        <span className="status-pill">{order.status || 'pending'}</span>
-      </div>
+    <div className={`order-row-wrap ${expanded ? 'is-expanded' : ''}`}>
+      <button type="button" className="order-row" onClick={() => setExpanded((current) => !current)}>
+        <div>
+          <strong>{order.customerName || order.customer?.name || 'Customer'}</strong>
+          <span>{order.id ? `#${order.id.slice(0, 8)}` : 'New order'}</span>
+        </div>
+        <div>
+          <strong>{formatCurrency(order.total || order.amount)}</strong>
+          <span className="status-pill">{order.status || 'pending'}</span>
+        </div>
+      </button>
+      {expanded && (
+        <div className="order-details">
+          {items.length > 0 ? (
+            <div className="order-items">
+              {items.map((item, index) => (
+                <div className="order-item" key={item.productId || index}>
+                  {item.imageUrl ? (
+                    <img src={item.imageUrl} alt={item.name || 'Product'} />
+                  ) : (
+                    <div className="order-item-noimg" />
+                  )}
+                  <div>
+                    <strong>{item.name || 'Product'}</strong>
+                    <span>{item.quantity || 1} x {formatCurrency(item.price)}</span>
+                  </div>
+                  <strong className="order-item-subtotal">
+                    {formatCurrency(item.subtotal ?? Number(item.price || 0) * Number(item.quantity || 1))}
+                  </strong>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="order-details-empty">No item details were recorded for this order.</p>
+          )}
+          <div className="order-summary">
+            <div><span>Subtotal</span><strong>{formatCurrency(order.subtotal)}</strong></div>
+            <div><span>Delivery fee</span><strong>{formatCurrency(order.deliveryFee)}</strong></div>
+            <div><span>Total</span><strong>{formatCurrency(order.total || order.amount)}</strong></div>
+          </div>
+          <div className="order-contact">
+            {order.customerPhone && <div><span>Phone</span><strong>{order.customerPhone}</strong></div>}
+            {order.customerAddress && <div><span>Delivery address</span><strong>{order.customerAddress}</strong></div>}
+            {order.customerNote && <div><span>Note</span><strong>{order.customerNote}</strong></div>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1819,13 +1860,24 @@ export default function Dashboard({ user, userProfile, onLogout }) {
           line-height: 1.5;
         }
         .orders-list { display: grid; gap: 10px; }
+        .order-row-wrap {
+          border: 1px solid var(--paper-dim);
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        .order-row-wrap.is-expanded { border-color: var(--line); }
         .order-row {
           display: flex;
           justify-content: space-between;
           gap: 12px;
-          border: 1px solid var(--paper-dim);
-          border-radius: 8px;
+          border: 0;
+          border-radius: 0;
           padding: 13px;
+          width: 100%;
+          background: transparent;
+          font: inherit;
+          text-align: inherit;
+          cursor: pointer;
         }
         .order-row div {
           display: grid;
@@ -1853,6 +1905,59 @@ export default function Dashboard({ user, userProfile, onLogout }) {
           text-transform: uppercase;
           letter-spacing: .05em;
         }
+        .order-details {
+          padding: 13px;
+          border-top: 1px solid var(--paper-dim);
+          background: var(--paper-dim);
+          display: grid;
+          gap: 12px;
+        }
+        .order-items { display: grid; gap: 8px; }
+        .order-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          background: #fff;
+          border: 1px solid var(--paper-dim);
+          border-radius: 8px;
+          padding: 8px 10px;
+        }
+        .order-item img,
+        .order-item-noimg {
+          width: 36px;
+          height: 36px;
+          border-radius: 6px;
+          object-fit: cover;
+          background: var(--paper-dim);
+          flex-shrink: 0;
+        }
+        .order-item > div {
+          display: grid;
+          gap: 2px;
+          flex: 1;
+          min-width: 0;
+        }
+        .order-item strong { font-size: 13.5px; color: var(--ink); overflow-wrap: anywhere; }
+        .order-item span { font-size: 12px; color: var(--slate); }
+        .order-item-subtotal { white-space: nowrap; font-size: 13.5px; }
+        .order-details-empty { margin: 0; font-size: 12.5px; color: var(--slate); }
+        .order-summary,
+        .order-contact {
+          display: grid;
+          gap: 4px;
+          font-size: 13px;
+          border-top: 1px dashed var(--line);
+          padding-top: 10px;
+        }
+        .order-summary div,
+        .order-contact div {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+        }
+        .order-summary span,
+        .order-contact span { color: var(--slate); }
+        .order-contact strong { text-align: right; overflow-wrap: anywhere; }
         .empty-state {
           border: 1px dashed var(--line);
           border-radius: 8px;
