@@ -8,6 +8,7 @@ import {
   sendEmail,
   sendOrderStatusEmail,
 } from '../services/notification.service.js';
+import { escapeHtml, getDashboardUrl, renderEmailCodePill, renderEmailLayout } from '../utils/emailTemplate.js';
 
 export const sendWelcomeEmail = asyncHandler(async (req, res) => {
   const { email, name = '', planName = 'your plan' } = req.body || {};
@@ -16,11 +17,21 @@ export const sendWelcomeEmail = asyncHandler(async (req, res) => {
     throw createHttpError(400, 'email is required.');
   }
 
+  const recipientName = name || 'there';
   const result = await sendEmail({
     to: email,
     subject: 'Welcome to Blorbify',
-    text: `Hi ${name || 'there'}, your ${planName} subscription is active.`,
-    html: `<p>Hi ${name || 'there'},</p><p>Your <strong>${planName}</strong> subscription is active.</p>`,
+    text: `Hi ${recipientName}, your ${planName} subscription is active.\n\n${getDashboardUrl()}`,
+    html: renderEmailLayout({
+      preheader: `Your ${planName} subscription is active.`,
+      heading: 'Welcome to Blorbify 🎉',
+      bodyHtml: `
+        <p style="margin:0 0 14px;">Hi ${escapeHtml(recipientName)},</p>
+        <p style="margin:0;">Your ${renderEmailCodePill(escapeHtml(planName))} subscription is active.</p>
+      `,
+      ctaLabel: 'Go to your dashboard',
+      ctaUrl: getDashboardUrl(),
+    }),
     data: { type: 'welcome', planName },
   });
 
