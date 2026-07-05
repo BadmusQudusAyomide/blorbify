@@ -1,6 +1,6 @@
 import { adminDb, fieldValue } from '../config/firebaseAdmin.js';
 import { createHttpError } from '../utils/httpError.js';
-import { getSubscriptionPlan } from './planCatalog.js';
+import { getSubscriptionPlan, subscriptionPlans } from './planCatalog.js';
 import { queueWelcomeNotification } from './notification.service.js';
 
 function normalizeMetadata(metadata) {
@@ -255,9 +255,5 @@ export async function getSubscriptionByUserId(userId) {
 }
 
 export async function listSubscriptionPlans() {
-  return [
-    { id: 'starter', name: 'Starter', amountNaira: 10000, interval: 'monthly' },
-    { id: 'growth', name: 'Growth', amountNaira: 25000, interval: 'monthly' },
-    { id: 'pro', name: 'Pro', amountNaira: 50000, interval: 'monthly' },
-  ];
+  return subscriptionPlans;
 }

@@ -274,7 +274,7 @@ export default function LandingPage() {
     {
       name: "Starter",
       tagline: "Your store online, taking orders",
-      price: "₦10,000",
+      price: "₦2,500",
       cadence: "/ month",
       features: ["Pro website + storefront", "Unlimited products", "Shareable store link", "No ads included"],
       highlight: false,
@@ -282,7 +282,7 @@ export default function LandingPage() {
     {
       name: "Growth",
       tagline: "Add delivery and start running ads",
-      price: "₦25,000",
+      price: "₦6,500",
       cadence: "/ month",
       features: ["Everything in Starter", "Connected delivery", "Ads that bring buyers", "Order tracking for customers"],
       highlight: true,
@@ -290,7 +290,7 @@ export default function LandingPage() {
     {
       name: "Pro",
       tagline: "Full campaigns, priority everything",
-      price: "₦50,000",
+      price: "₦12,500",
       cadence: "/ month",
       features: ["Everything in Growth", "Full ad campaigns", "Priority delivery", "Dedicated support"],
       highlight: false,
