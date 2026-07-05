@@ -861,7 +861,8 @@ const copyFieldRows = [
   { key: 'footerText', label: 'Footer text', placeholder: 'Made in Lagos. Delivered nationwide.' },
 ];
 
-function AppearanceEditor({ userId, storeInfo, onAppearanceSaved }) {
+function AppearanceEditor({ userId, storeInfo, onAppearanceSaved, compact = false }) {
+  const navigate = useNavigate();
   const [selectedTemplate, setSelectedTemplate] = useState(storeInfo.template || 'signature');
   const [themeColors, setThemeColors] = useState(() => getTemplateTheme(storeInfo.template || 'signature', storeInfo));
   const [copy, setCopy] = useState(() => getStoreCopy(storeInfo));
@@ -1061,6 +1062,38 @@ function AppearanceEditor({ userId, storeInfo, onAppearanceSaved }) {
       setUploadProgress(0);
     }
   };
+
+  if (compact) {
+    const activeTemplate = storeTemplates.find((item) => item.id === (storeInfo.template || 'signature')) || storeTemplates[0];
+    const currentTheme = getTemplateTheme(storeInfo.template || 'signature', storeInfo);
+
+    return (
+      <div className="business-info-view">
+        <div className="appearance-summary-row">
+          <span
+            className={`template-swatch preview-${activeTemplate.id}`}
+            style={{ '--preview-accent': currentTheme.primaryColor, '--preview-ink': currentTheme.textColor, '--preview-surface': currentTheme.backgroundColor }}
+          >
+            <i />
+            <b />
+            <em />
+          </span>
+          <div>
+            <strong>{activeTemplate.name} template</strong>
+            <p>{activeTemplate.description}</p>
+          </div>
+        </div>
+        <div className="detail-list">
+          <DetailRow label="Accent color" value={currentTheme.primaryColor} />
+          <DetailRow label="Delivery fee" value={formatCurrency(storeInfo.deliveryFee)} />
+        </div>
+        <button type="button" className="secondary-action" onClick={() => navigate('/dashboard/appearance')}>
+          <IconEdit size={16} />
+          Edit appearance
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className={`appearance-editor ${previewOpen ? '' : 'preview-collapsed'}`}>
@@ -2088,6 +2121,26 @@ export default function Dashboard({ user, userProfile, onLogout }) {
           display: grid;
           gap: 14px;
         }
+        .appearance-summary-row {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+        .appearance-summary-row .template-swatch {
+          flex-shrink: 0;
+          width: 64px;
+          height: 64px;
+        }
+        .appearance-summary-row strong {
+          display: block;
+          font-size: 15px;
+        }
+        .appearance-summary-row p {
+          margin: 4px 0 0;
+          color: var(--slate);
+          font-size: 13px;
+          line-height: 1.5;
+        }
         .form-actions {
           display: flex;
           justify-content: flex-end;
@@ -2563,6 +2616,7 @@ export default function Dashboard({ user, userProfile, onLogout }) {
                   products,
                 }}
                 onAppearanceSaved={(nextStoreInfo) => setStore((current) => ({ ...(current || storeInfo), ...nextStoreInfo }))}
+                compact={activeTab === 'overview'}
               />
             </div>
           )}
