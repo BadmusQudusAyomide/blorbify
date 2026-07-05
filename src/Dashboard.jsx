@@ -2449,31 +2449,35 @@ export default function Dashboard({ user, userProfile, onLogout }) {
             {sidebarOpen ? <IconClose size={22} /> : <IconMenu size={22} />}
           </button>
           <div className="headline">
-            <h1>Dashboard</h1>
-            <p>Welcome back, {displayName}. Your store setup is synced from Firestore.</p>
+            <h1>{tabs.find((tab) => tab.id === activeTab)?.label || 'Dashboard'}</h1>
+            {activeTab === 'overview' && <p>Welcome back, {displayName}. Your store setup is synced from Firestore.</p>}
           </div>
           <a className="store-link" href={storeUrl} target="_blank" rel="noreferrer">
             {storeUrl}
           </a>
         </header>
 
-        <section className="hero-panel">
-          <div>
-            <h2>{businessName}</h2>
-            <p>
-              {storeInfo.description ||
-                'Your store profile is ready. Add products whenever you are prepared to start taking orders.'}
-            </p>
-          </div>
-          <div className="hero-badge">Onboarded</div>
-        </section>
+        {activeTab === 'overview' && (
+          <>
+            <section className="hero-panel">
+              <div>
+                <h2>{businessName}</h2>
+                <p>
+                  {storeInfo.description ||
+                    'Your store profile is ready. Add products whenever you are prepared to start taking orders.'}
+                </p>
+              </div>
+              <div className="hero-badge">Onboarded</div>
+            </section>
 
-        <section className="stats-grid" aria-label="Store stats">
-          <StatCard label="Revenue" value={formatCurrency(stats.revenue)} icon={IconDashboard} tone="lime" />
-          <StatCard label="Orders" value={stats.totalOrders} icon={IconOrders} tone="blue" />
-          <StatCard label="Customers" value={stats.totalCustomers} icon={IconUsers} tone="orange" />
-          <StatCard label="Products" value={stats.totalProducts} icon={IconStore} tone="green" />
-        </section>
+            <section className="stats-grid" aria-label="Store stats">
+              <StatCard label="Revenue" value={formatCurrency(stats.revenue)} icon={IconDashboard} tone="lime" />
+              <StatCard label="Orders" value={stats.totalOrders} icon={IconOrders} tone="blue" />
+              <StatCard label="Customers" value={stats.totalCustomers} icon={IconUsers} tone="orange" />
+              <StatCard label="Products" value={stats.totalProducts} icon={IconStore} tone="green" />
+            </section>
+          </>
+        )}
 
         <section className="content-grid">
           {activeTab === 'products' && (
