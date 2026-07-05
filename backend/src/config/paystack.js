@@ -48,6 +48,10 @@ export async function verifyPaystackTransaction(reference) {
   return paystackRequest('get', `/transaction/verify/${encodeURIComponent(reference)}`);
 }
 
+export async function listPaystackBanks() {
+  return paystackRequest('get', '/bank', null, { currency: 'NGN' });
+}
+
 export async function createPaystackSubaccount(payload) {
   return paystackRequest('post', '/subaccount', payload);
 }

@@ -80,14 +80,6 @@ const IconWallet = (props) => (
   </IconBase>
 );
 
-const IconCreditCard = (props) => (
-  <IconBase {...props}>
-    <rect x="3.5" y="5.5" width="17" height="13" rx="2" stroke="currentColor" strokeWidth="1.7" />
-    <path d="M3.5 9.5h17" stroke="currentColor" strokeWidth="1.7" />
-    <path d="M6.5 14.5h4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-  </IconBase>
-);
-
 const IconUsers = (props) => (
   <IconBase {...props}>
     <path d="M16 20v-1.5c0-2.2-1.8-4-4-4H6c-2.2 0-4 1.8-4 4V20" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
@@ -1284,8 +1276,8 @@ export default function Dashboard({ user, userProfile, onLogout }) {
     { id: 'business', label: 'Business Info', icon: IconStore },
     { id: 'orders', label: 'Orders', icon: IconOrders },
     { id: 'appearance', label: 'Appearance', icon: IconPalette },
-    { id: 'billing', label: 'Billing', icon: IconCreditCard },
     { id: 'payouts', label: 'Payouts', icon: IconWallet },
+    { id: 'billing', label: 'Billing', icon: IconWallet },
   ];
 
   if (loading) {
@@ -2448,21 +2440,21 @@ export default function Dashboard({ user, userProfile, onLogout }) {
             </div>
           )}
 
-          {activeTab === 'billing' && (
-            <div className="content-card full-span">
-              <div className="card-header">
-                <h3>Billing</h3>
-              </div>
-              <BillingPanel user={user} profile={profile} />
-            </div>
-          )}
-
           {activeTab === 'payouts' && (
             <div className="content-card full-span">
               <div className="card-header">
                 <h3>Seller Payouts</h3>
               </div>
               <SellerPayoutPanel user={user} storeInfo={storeInfo} />
+            </div>
+          )}
+
+          {activeTab === 'billing' && (
+            <div className="content-card full-span">
+              <div className="card-header">
+                <h3>Billing</h3>
+              </div>
+              <BillingPanel user={user} userProfile={userProfile} />
             </div>
           )}
         </section>

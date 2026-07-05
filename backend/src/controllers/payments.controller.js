@@ -45,6 +45,7 @@ export const initializeSubscriptionPayment = asyncHandler(async (req, res) => {
   const reference = createReference('plan');
   const metadata = {
     purpose: 'store_owner_subscription',
+    app: 'blorbify',
     userId,
     planId: plan.id,
     planName: plan.name,

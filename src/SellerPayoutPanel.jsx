@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { loadSellerSubaccount, saveSellerSubaccount } from './backendApi';
+import { loadBanks, loadSellerSubaccount, saveSellerSubaccount } from './backendApi';
 
 function formatDate(value) {
   if (!value) return 'Not updated yet';
@@ -31,6 +31,27 @@ export default function SellerPayoutPanel({ user, storeInfo }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [banks, setBanks] = useState([]);
+  const [banksError, setBanksError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+
+    void (async () => {
+      try {
+        const response = await loadBanks();
+        if (!active) return;
+        setBanks(response?.data?.banks || []);
+      } catch (banksLoadError) {
+        if (!active) return;
+        setBanksError(banksLoadError?.message || 'Could not load the bank list.');
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const statusLabel = useMemo(() => {
     if (!profile?.subaccountCode) return 'Not created';
@@ -230,6 +251,7 @@ export default function SellerPayoutPanel({ user, storeInfo }) {
           letter-spacing: .04em;
         }
         .seller-field input,
+        .seller-field select,
         .seller-field textarea {
           width: 100%;
           border: 1px solid var(--line);
@@ -246,6 +268,7 @@ export default function SellerPayoutPanel({ user, storeInfo }) {
           min-height: 92px;
         }
         .seller-field input:focus,
+        .seller-field select:focus,
         .seller-field textarea:focus {
           border-color: #9bdc00;
           box-shadow: 0 0 0 4px rgba(175,255,0,.15);
@@ -370,12 +393,23 @@ export default function SellerPayoutPanel({ user, storeInfo }) {
               />
             </label>
             <label className="seller-field">
-              <span>Bank code</span>
-              <input
-                value={form.bankCode}
-                onChange={(event) => updateField('bankCode', event.target.value)}
-                placeholder="058"
-              />
+              <span>Bank</span>
+              {banks.length > 0 ? (
+                <select value={form.bankCode} onChange={(event) => updateField('bankCode', event.target.value)}>
+                  <option value="">Select your bank</option>
+                  {banks.map((bank) => (
+                    <option key={bank.code} value={bank.code}>
+                      {bank.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  value={form.bankCode}
+                  onChange={(event) => updateField('bankCode', event.target.value)}
+                  placeholder={banksError ? 'Enter your bank code' : 'Loading banks...'}
+                />
+              )}
             </label>
             <label className="seller-field">
               <span>Account number</span>
