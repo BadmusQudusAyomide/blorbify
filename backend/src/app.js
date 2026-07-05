@@ -17,7 +17,10 @@ import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
 
-app.use(helmet());
+// CSP is set per-route (see /payment/callback) with a request-specific nonce;
+// Helmet's default CSP has no knowledge of that nonce and would block the inline
+// redirect script, so its built-in CSP is disabled here.
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
   origin: env.clientOrigin,
   credentials: true,
