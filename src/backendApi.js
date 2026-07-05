@@ -26,17 +26,22 @@ async function resolveAuthToken(token) {
 async function parseResponse(response) {
   const rawText = await response.text();
   let data = {};
+  let parseFailed = false;
 
   if (rawText) {
     try {
       data = JSON.parse(rawText);
     } catch {
-      data = { message: rawText };
+      parseFailed = true;
     }
   }
 
-  if (!response.ok) {
-    const error = new Error(data?.message || `Request failed with status ${response.status}.`);
+  if (!response.ok || parseFailed) {
+    const error = new Error(
+      parseFailed
+        ? 'Unexpected response from the backend (not JSON) — check VITE_BACKEND_API_BASE_URL is set correctly.'
+        : data?.message || `Request failed with status ${response.status}.`
+    );
     error.status = response.status;
     throw error;
   }
@@ -75,6 +80,10 @@ export async function publicBackendRequest(path, { method = 'GET', body, headers
   });
 
   return parseResponse(response);
+}
+
+export async function loadBanks() {
+  return publicBackendRequest('/sellers/banks', { method: 'GET' });
 }
 
 export async function loadSellerSubaccount(sellerId, token) {
