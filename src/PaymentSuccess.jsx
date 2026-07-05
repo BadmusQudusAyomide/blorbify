@@ -47,7 +47,7 @@ export default function PaymentSuccess() {
   }, [reference]);
 
   const goToDashboard = () => {
-    window.location.href = '/';
+    navigate('/dashboard');
   };
 
   const iconFor = {
