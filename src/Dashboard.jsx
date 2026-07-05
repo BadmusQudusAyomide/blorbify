@@ -877,6 +877,7 @@ function AppearanceEditor({ userId, storeInfo, onAppearanceSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [previewOpen, setPreviewOpen] = useState(true);
 
   useEffect(() => {
     return () => {
@@ -1062,7 +1063,7 @@ function AppearanceEditor({ userId, storeInfo, onAppearanceSaved }) {
   };
 
   return (
-    <div className="appearance-editor">
+    <div className={`appearance-editor ${previewOpen ? '' : 'preview-collapsed'}`}>
       <div className="appearance-controls">
         <div>
           <span className="control-label">Design</span>
