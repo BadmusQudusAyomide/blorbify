@@ -1213,9 +1213,18 @@ function AppearanceEditor({ userId, storeInfo, onAppearanceSaved }) {
       </div>
 
       <div className="appearance-preview-col">
-        <span className="control-label">Live preview</span>
-        <LivePreviewFrame store={livePreviewStore} />
-        <p className="preview-hint">This is your actual storefront design, scaled down — exactly what buyers will see at {storeInfo.storeSlug ? getStoreUrl(storeInfo.storeSlug) : 'your store URL'}.</p>
+        <div className="preview-col-header">
+          <span className="control-label">Live preview</span>
+          <button type="button" className="preview-toggle" onClick={() => setPreviewOpen((current) => !current)}>
+            {previewOpen ? 'Hide preview' : 'Show preview'}
+          </button>
+        </div>
+        {previewOpen && (
+          <>
+            <LivePreviewFrame store={livePreviewStore} />
+            <p className="preview-hint">This is your actual storefront design, scaled down — exactly what buyers will see at {storeInfo.storeSlug ? getStoreUrl(storeInfo.storeSlug) : 'your store URL'}.</p>
+          </>
+        )}
       </div>
     </div>
   );
