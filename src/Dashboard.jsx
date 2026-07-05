@@ -2793,14 +2793,14 @@ export default function Dashboard({ user, userProfile, onLogout }) {
             </div>
           )}
 
-          {(activeTab === 'overview' || activeTab === 'orders') && !orderId && (
+          {activeTab === 'orders' && !orderId && (
             <div className="content-card">
               <div className="card-header">
-                <h3>{activeTab === 'orders' ? 'Orders' : 'Recent Orders'}</h3>
+                <h3>Orders</h3>
               </div>
               {orders.length > 0 ? (
                 <div className="orders-list">
-                  {(activeTab === 'orders' ? orders : orders.slice(0, 6)).map((order) => (
+                  {orders.map((order) => (
                     <OrderRow key={order.id} order={order} />
                   ))}
                 </div>
