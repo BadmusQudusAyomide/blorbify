@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { collection, doc, limit, onSnapshot, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
+import { collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 import {
   checkProductImageDimensions,
   uploadProductImage,
@@ -1395,7 +1395,12 @@ export default function Dashboard({ user, userProfile, onLogout }) {
 
     const userRef = doc(db, 'users', user.uid);
     const storeRef = doc(db, 'stores', user.uid);
-    const ordersQuery = query(collection(db, 'orders'), where('storeId', '==', user.uid), limit(50));
+    const ordersQuery = query(
+      collection(db, 'orders'),
+      where('storeId', '==', user.uid),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    );
 
     const unsubscribeUser = onSnapshot(
       userRef,
