@@ -1221,12 +1221,14 @@ function AppearanceEditor({ userId, storeInfo, onAppearanceSaved }) {
 }
 
 export default function Dashboard({ user, userProfile, onLogout }) {
+  const navigate = useNavigate();
+  const { tab: tabParam } = useParams();
+  const activeTab = tabParam || 'overview';
   const [profile, setProfile] = useState(userProfile || null);
   const [store, setStore] = useState(null);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(Boolean(user?.uid));
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
   const [ordersError, setOrdersError] = useState('');
 
   useEffect(() => {
@@ -2411,7 +2413,7 @@ export default function Dashboard({ user, userProfile, onLogout }) {
               type="button"
               className={`nav-item ${activeTab === tab.id ? 'active' : ''}`}
               onClick={() => {
-                setActiveTab(tab.id);
+                navigate(tab.id === 'overview' ? '/dashboard' : `/dashboard/${tab.id}`);
                 setSidebarOpen(false);
               }}
             >
