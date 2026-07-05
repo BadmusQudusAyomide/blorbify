@@ -93,11 +93,12 @@ export default function CartDrawer({
 
               <form className="cart-checkout-form" onSubmit={onSubmit}>
                 <input value={customer.name} onChange={(event) => onCustomerChange('name', event.target.value)} placeholder="Your name" />
+                <input type="email" value={customer.email} onChange={(event) => onCustomerChange('email', event.target.value)} placeholder="Email (for your payment receipt)" />
                 <input value={customer.phone} onChange={(event) => onCustomerChange('phone', event.target.value)} placeholder="Phone number" />
                 <textarea value={customer.address} onChange={(event) => onCustomerChange('address', event.target.value)} placeholder="Delivery address" />
                 <textarea value={customer.note} onChange={(event) => onCustomerChange('note', event.target.value)} placeholder="Note for the seller (optional)" />
                 <button type="submit" className="store-cta block" disabled={submitting || !cart.length}>
-                  {submitting ? 'Placing order...' : checkoutLabel}
+                  {submitting ? 'Redirecting to payment...' : checkoutLabel}
                 </button>
               </form>
             </div>

@@ -7,6 +7,7 @@ import { createStoreSlug } from './storeLinks';
 import { useCart, productKey } from './storefront/useCart';
 import { useToasts } from './storefront/useToasts';
 import { formatCurrency, getSocialHref, getBusinessTypeLabel } from './storefront/storefrontUtils';
+import { getBackendOrigin, initializeSellerOrderPayment, verifySellerOrderPayment } from './backendApi';
 import SignatureTemplate from './storefront/SignatureTemplate';
 import NoirTemplate from './storefront/NoirTemplate';
 
@@ -21,11 +22,15 @@ const templateComponents = {
   noir: NoirTemplate,
 };
 
+function redirectTo(url) {
+  window.location.href = url;
+}
+
 export default function Storefront({ slug }) {
   const [store, setStore] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [customer, setCustomer] = useState({ name: '', phone: '', address: '', note: '' });
+  const [customer, setCustomer] = useState({ name: '', email: '', phone: '', address: '', note: '' });
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
@@ -37,6 +42,7 @@ export default function Storefront({ slug }) {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const appliedInitialProductRef = useRef(false);
+  const appliedOrderReferenceRef = useRef(false);
 
   const { toasts, notify, dismiss } = useToasts();
 
@@ -129,6 +135,48 @@ export default function Storefront({ slug }) {
     onLimit: (product) => notify(`That's all the ${product.name} we have in stock`, { type: 'error' }),
   });
 
+  // Picks up the ?reference= param Paystack's callback redirects back with
+  // after checkout, confirms the order actually got paid, then cleans the
+  // param off the URL so refreshing doesn't re-trigger this.
+  useEffect(() => {
+    if (loading) return;
+    if (appliedOrderReferenceRef.current) return;
+
+    const reference = searchParams.get('reference');
+    if (!reference) return;
+
+    appliedOrderReferenceRef.current = true;
+    let active = true;
+
+    verifySellerOrderPayment(reference)
+      .then((response) => {
+        if (!active) return;
+        const status = String(response?.data?.verification?.status || '').toLowerCase();
+        if (['success', 'paid', 'completed'].includes(status)) {
+          clearCart();
+          setOrderPlaced(true);
+        } else {
+          notify("We're still confirming your payment — check back shortly.", { type: 'info' });
+        }
+      })
+      .catch((error) => {
+        if (!active) return;
+        console.error('Order payment verification failed:', error);
+        notify('We could not confirm your payment. Please contact the seller.', { type: 'error' });
+      })
+      .finally(() => {
+        if (!active) return;
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('reference');
+        nextParams.delete('trxref');
+        setSearchParams(nextParams, { replace: true });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [loading, searchParams, setSearchParams, clearCart, notify]);
+
   const deliveryFee = Number(store?.deliveryFee || 0);
   const cartTotal = cartSubtotal + (cart.length ? deliveryFee : 0);
   const freeShippingThreshold = Number(store?.freeShippingThreshold || 75000);
@@ -186,11 +234,12 @@ export default function Storefront({ slug }) {
     }
 
     const name = customer.name.trim();
+    const email = customer.email.trim();
     const phone = customer.phone.trim();
     const address = customer.address.trim();
 
-    if (!name || !phone || !address) {
-      notify('We need your name, phone number, and delivery address to arrange delivery', { type: 'error' });
+    if (!name || !email || !phone || !address) {
+      notify('We need your name, email, phone number, and delivery address to arrange delivery', { type: 'error' });
       return;
     }
 
@@ -205,11 +254,12 @@ export default function Storefront({ slug }) {
         subtotal: Number(item.price || 0) * item.quantity,
       }));
 
-      await addDoc(collection(db, 'orders'), {
+      const orderRef = await addDoc(collection(db, 'orders'), {
         storeId: store.ownerId,
         storeSlug: store.storeSlug,
         storeName: store.businessName,
         customerName: name,
+        customerEmail: email,
         customerPhone: phone,
         customerAddress: address,
         customerNote: customer.note.trim(),
@@ -221,14 +271,28 @@ export default function Storefront({ slug }) {
         createdAt: serverTimestamp(),
       });
 
-      clearCart();
-      setCustomer({ name: '', phone: '', address: '', note: '' });
-      setOrderPlaced(true);
-      notify(`Order placed! ${store.businessName} will reach out shortly`, { type: 'order', duration: 5200 });
+      const response = await initializeSellerOrderPayment({
+        sellerId: store.ownerId,
+        orderId: orderRef.id,
+        email,
+        amountNaira: cartTotal,
+        callbackUrl: `${getBackendOrigin()}/payment/callback`,
+        returnUrl: `${window.location.origin}/${store.storeSlug}`,
+        buyerName: name,
+        buyerPhone: phone,
+        buyerAddress: address,
+        note: customer.note.trim(),
+      });
+
+      const authorizationUrl = response?.data?.paystack?.authorization_url;
+      if (!authorizationUrl) {
+        throw new Error('Paystack did not return a checkout link.');
+      }
+
+      redirectTo(authorizationUrl);
     } catch (error) {
       console.error('Order creation failed:', error);
       notify('Your order could not be placed — please try again', { type: 'error' });
-    } finally {
       setSubmittingOrder(false);
     }
   };
