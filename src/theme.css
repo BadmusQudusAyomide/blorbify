@@ -1,0 +1,163 @@
+/* ============================================================
+   SHARED THEME — Blorbify auth / onboarding journey
+   Single source of truth for tokens, shared keyframes, and the
+   shared pill-button look used across AuthScreen, OnboardingScreen,
+   BusinessInfo, TemplateSelect, and LaunchStore.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,500&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+  --ink: #192328;
+  --ink-deep: #0F1518;
+  --ink-soft: #233038;
+  --signal: #AFFF00;
+  --signal-dim: #8FDD00;
+  --paper: #F6F8F1;
+  --paper-dim: #EAEFE0;
+  --slate: #93A2A6;
+  --slate-dark: #5C6B6E;
+  --line: rgba(255,255,255,0.09);
+  --line-dark: rgba(25,35,40,0.1);
+  --radius: 18px;
+  --shadow: 0 30px 60px rgba(0,0,0,0.3);
+  --danger: #FF6B6B;
+  --gold: #FFD166;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 0.25s;
+  --dur-med: 0.4s;
+  --dur-slow: 0.9s;
+}
+
+/* -------- Shared pill buttons -------- */
+.btn-next,
+.btn-back,
+.btn-auth {
+  border-radius: 999px;
+  font-family: 'Raleway', sans-serif;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: transform var(--dur-fast) var(--ease-out-expo), box-shadow var(--dur-fast) var(--ease-out-expo), background var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.btn-next,
+.btn-auth {
+  background: var(--signal);
+  color: var(--ink);
+  border: none;
+  font-weight: 800;
+  box-shadow: 0 10px 24px rgba(175,255,0,0.2);
+}
+
+.btn-next:hover:not(:disabled),
+.btn-auth:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px rgba(175,255,0,0.28);
+}
+
+.btn-next:active:not(:disabled),
+.btn-auth:active:not(:disabled) { transform: scale(0.98); }
+
+.btn-next:disabled,
+.btn-auth:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+.btn-back {
+  background: transparent;
+  border: 1px solid var(--line-dark);
+  color: var(--slate-dark);
+  font-weight: 700;
+}
+
+.btn-back:hover { border-color: var(--ink); color: var(--ink); }
+
+/* -------- Shared keyframes -------- */
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+@keyframes popIn {
+  0% { opacity: 0; transform: scale(0.6); }
+  60% { opacity: 1; transform: scale(1.12); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pillPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+
+@keyframes pulseRing {
+  0%, 100% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--tc-accent, var(--signal)) 22%, transparent), 0 0 24px color-mix(in srgb, var(--tc-accent, var(--signal)) 35%, transparent); }
+  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--tc-accent, var(--signal)) 30%, transparent), 0 0 36px color-mix(in srgb, var(--tc-accent, var(--signal)) 55%, transparent); }
+}
+
+/* -------- Shared flow-crumb (Sign up -> Verify -> Onboard) -------- */
+.flow-crumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+
+.flow-crumb-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--slate-dark);
+  transition: color var(--dur-fast) ease;
+}
+
+.flow-crumb-item .flow-crumb-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+  transition: background var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
+}
+
+.flow-crumb-item.done { color: var(--signal-dim); }
+.flow-crumb-item.active {
+  color: var(--signal);
+}
+.flow-crumb-item.active .flow-crumb-dot {
+  background: var(--signal);
+  box-shadow: 0 0 0 4px rgba(175,255,0,0.18);
+}
+
+.flow-crumb-sep {
+  width: 14px;
+  height: 1px;
+  background: var(--line-dark);
+  flex-shrink: 0;
+}
+
+/* Dark-shell variant (AuthScreen sits on a dark background) */
+.flow-crumb--dark .flow-crumb-item { color: var(--slate); }
+.flow-crumb--dark .flow-crumb-item.done { color: var(--signal-dim); }
+.flow-crumb--dark .flow-crumb-item.active { color: var(--signal); }
+.flow-crumb--dark .flow-crumb-sep { background: var(--line); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

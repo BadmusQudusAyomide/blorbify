@@ -10,6 +10,7 @@ import {
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { sendEmailOtp, verifyEmailOtp } from './backendApi';
+import { launchConfetti } from './celebration';
 
 /* ============================================================
    AUTHENTICATION SCREEN — Blorbify
@@ -92,6 +93,22 @@ const IconAlert = (p) => (
   </IconBase>
 );
 
+const FLOW_STEPS = ['Sign up', 'Verify email', 'Onboard'];
+
+const FlowCrumb = ({ activeIndex, dark = true }) => (
+  <div className={`flow-crumb ${dark ? 'flow-crumb--dark' : ''}`}>
+    {FLOW_STEPS.map((label, index) => (
+      <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {index > 0 && <span className="flow-crumb-sep" />}
+        <span className={`flow-crumb-item ${index < activeIndex ? 'done' : ''} ${index === activeIndex ? 'active' : ''}`}>
+          <span className="flow-crumb-dot" />
+          {label}
+        </span>
+      </span>
+    ))}
+  </div>
+);
+
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(onClose, 4000);
@@ -156,7 +173,7 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
   const [otpCooldown, setOtpCooldown] = useState(0);
   const [otpError, setOtpError] = useState('');
   const otpSentOnceRef = useRef(false);
-  const otpInputRef = useRef(null);
+  const otpBoxRefs = useRef([]);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [justSucceeded, setJustSucceeded] = useState(false);
@@ -202,7 +219,7 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
       const result = await sendEmailOtp(idToken);
       setOtpCooldown(result?.resendCooldownSeconds || 45);
       addToast(`We sent a 6-digit code to ${otpEmail}`, 'info');
-      otpInputRef.current?.focus();
+      otpBoxRefs.current[0]?.focus();
     } catch (error) {
       addToast(error.message || 'Could not send a verification code. Please try again.', 'error');
     } finally {
@@ -221,6 +238,34 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otpStep]);
 
+  const handleOtpBoxChange = (index, rawValue) => {
+    const digit = rawValue.replace(/\D/g, '').slice(-1);
+    const nextCode = otpCode.split('');
+    nextCode[index] = digit || '';
+    const joined = nextCode.join('').slice(0, 6);
+    setOtpCode(joined);
+    setOtpError('');
+    if (digit && index < 5) {
+      otpBoxRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpBoxKeyDown = (index, event) => {
+    if (event.key === 'Backspace' && !otpCode[index] && index > 0) {
+      otpBoxRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleOtpBoxPaste = (event) => {
+    const pasted = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (!pasted) return;
+    event.preventDefault();
+    setOtpCode(pasted);
+    setOtpError('');
+    const focusIndex = Math.min(pasted.length, 5);
+    otpBoxRefs.current[focusIndex]?.focus();
+  };
+
   const handleVerifyOtp = async (event) => {
     event.preventDefault();
     const trimmed = otpCode.trim();
@@ -235,6 +280,7 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
       const idToken = await auth.currentUser.getIdToken();
       await verifyEmailOtp(trimmed, idToken);
       setJustSucceeded(true);
+      launchConfetti({ originY: 0.3 });
       addToast('Email verified! Welcome to Blorbify.', 'success');
       setTimeout(async () => {
         await onSuccess?.(auth.currentUser);
@@ -390,25 +436,6 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
   return (
     <div className="auth-root">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,500&family=JetBrains+Mono:wght@400;500;700&display=swap');
-
-        :root {
-          --ink: #192328;
-          --ink-deep: #0F1518;
-          --ink-soft: #233038;
-          --signal: #AFFF00;
-          --signal-dim: #8FDD00;
-          --paper: #F6F8F1;
-          --paper-dim: #EAEFE0;
-          --slate: #93A2A6;
-          --slate-dark: #5C6B6E;
-          --line: rgba(255,255,255,0.09);
-          --line-dark: rgba(25,35,40,0.1);
-          --radius: 18px;
-          --shadow: 0 30px 60px rgba(0,0,0,0.3);
-          --danger: #FF6B6B;
-        }
-
         .auth-root {
           font-family: 'Raleway', sans-serif;
           min-height: 100vh;
@@ -420,15 +447,48 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
           margin: 0;
           -webkit-font-smoothing: antialiased;
           position: relative;
+          overflow: hidden;
         }
 
         .auth-root * { box-sizing: border-box; }
 
-        @media (prefers-reduced-motion: reduce) {
-          .auth-root *, .auth-root *::before, .auth-root *::after {
-            animation-duration: 0.001ms !important;
-            transition-duration: 0.001ms !important;
-          }
+        .auth-aurora {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(70px);
+          pointer-events: none;
+          z-index: 0;
+          animation: auroraDrift 20s ease-in-out infinite;
+        }
+        .auth-aurora--one {
+          width: 460px;
+          height: 460px;
+          top: -160px;
+          left: -120px;
+          background: radial-gradient(circle, rgba(175,255,0,0.22) 0%, transparent 70%);
+        }
+        .auth-aurora--two {
+          width: 520px;
+          height: 520px;
+          bottom: -220px;
+          right: -160px;
+          background: radial-gradient(circle, rgba(143,221,0,0.16) 0%, transparent 70%);
+          animation-delay: -7s;
+          animation-duration: 26s;
+        }
+        .auth-aurora--three {
+          width: 320px;
+          height: 320px;
+          top: 40%;
+          right: 10%;
+          background: radial-gradient(circle, rgba(255,209,102,0.1) 0%, transparent 70%);
+          animation-delay: -13s;
+          animation-duration: 18s;
+        }
+
+        @keyframes auroraDrift {
+          0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.8; }
+          50% { transform: translate(24px, -18px) scale(1.12); opacity: 1; }
         }
 
         .toast-container {
@@ -478,6 +538,8 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
 
         /* -------- Shell: two-column on desktop -------- */
         .auth-shell {
+          position: relative;
+          z-index: 1;
           width: 100%;
           max-width: 1000px;
           display: grid;
@@ -698,12 +760,15 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
           background: var(--ink-soft);
           border-radius: 12px;
           border: 1px solid var(--line);
-          transition: border-color 0.25s ease, box-shadow 0.25s ease;
+          transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease, transform var(--dur-fast) var(--ease-out-expo);
         }
+
+        .input-wrap:hover { transform: translateY(-1px); }
 
         .input-wrap:focus-within {
           border-color: var(--signal);
           box-shadow: 0 0 0 4px rgba(175, 255, 0, 0.1);
+          transform: translateY(-1px);
         }
 
         .input-wrap.has-error {
@@ -712,12 +777,6 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
         }
         .input-wrap.has-error:focus-within {
           box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.12);
-        }
-
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-5px); }
-          75% { transform: translateX(5px); }
         }
 
         .field-error {
@@ -757,12 +816,49 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
 
         .input-wrap input::placeholder { color: var(--slate-dark); font-weight: 400; }
 
-        .otp-input {
-          font-family: 'JetBrains Mono', monospace !important;
-          font-size: 20px !important;
-          letter-spacing: 10px;
-          text-align: center;
+        .otp-envelope {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 52px;
+          height: 52px;
+          border-radius: 16px;
+          background: rgba(175,255,0,0.12);
+          color: var(--signal);
+          margin-bottom: 14px;
+          animation: popIn 0.5s var(--ease-out-expo);
         }
+
+        .otp-boxes {
+          display: flex;
+          gap: 10px;
+        }
+        .otp-boxes.has-error { animation: shake 0.32s ease; }
+
+        .otp-box {
+          width: 100%;
+          aspect-ratio: 1;
+          background: var(--ink-soft);
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          color: var(--paper);
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 22px;
+          font-weight: 700;
+          text-align: center;
+          outline: none;
+          transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease, transform var(--dur-fast) var(--ease-out-expo);
+        }
+
+        .otp-box:focus {
+          border-color: var(--signal);
+          box-shadow: 0 0 0 4px rgba(175, 255, 0, 0.1);
+          transform: translateY(-1px);
+        }
+
+        .otp-boxes.has-error .otp-box { border-color: var(--danger); }
+
+        .otp-box.filled { animation: popIn 0.22s var(--ease-out-expo); }
 
         .input-wrap input:-webkit-autofill {
           -webkit-box-shadow: 0 0 0 1000px var(--ink-soft) inset !important;
@@ -806,7 +902,7 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
         }
         .password-strength-seg.filled.tier-1 { background: var(--danger); }
         .password-strength-seg.filled.tier-2 { background: #FFB020; }
-        .password-strength-seg.filled.tier-3 { background: #8FDD00; }
+        .password-strength-seg.filled.tier-3 { background: var(--signal-dim); }
         .password-strength-seg.filled.tier-4 { background: var(--signal); }
 
         .password-strength-label {
@@ -880,26 +976,11 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
         .btn-auth {
           width: 100%;
           padding: 18px;
-          border-radius: 100px;
-          font-weight: 700;
           font-size: 16px;
-          font-family: 'Raleway', sans-serif;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 12px;
-          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-          border: none;
-          background: var(--signal);
-          color: var(--ink);
           position: relative;
         }
 
-        .btn-auth:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 16px 32px rgba(175, 255, 0, 0.25); }
-        .btn-auth:active:not(:disabled) { transform: scale(0.98); }
-        .btn-auth:disabled { opacity: 0.75; cursor: not-allowed; }
-        .btn-auth.succeeded { background: var(--signal); }
+        .btn-auth.succeeded { animation: popIn 0.3s var(--ease-out-expo); }
 
         .btn-auth .spinner {
           width: 22px;
@@ -909,8 +990,6 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
           border-radius: 50%;
           animation: spin 0.7s linear infinite;
         }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
 
         .auth-footer {
           text-align: center;
@@ -968,7 +1047,8 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
         }
 
         .social-btn:hover { border-color: var(--slate); color: var(--paper); background: var(--ink); }
-        .social-btn .social-icon { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
+        .social-btn:hover .social-icon { transform: scale(1.12); }
+        .social-btn .social-icon { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; transition: transform var(--dur-fast) var(--ease-out-expo); }
 
         /* -------- Reset password mini flow -------- */
         .reset-success {
@@ -988,6 +1068,7 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
           display: flex;
           align-items: center;
           justify-content: center;
+          animation: popIn 0.4s var(--ease-out-expo);
         }
         .reset-success p { color: var(--slate); font-size: 14px; line-height: 1.6; margin: 0; }
         .reset-success strong { color: var(--paper); }
@@ -1013,6 +1094,8 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
           .social-btns { flex-direction: column; }
           .toast-container { top: 12px; right: 12px; left: 12px; max-width: none; }
           .toast { padding: 14px 16px; font-size: 13px; }
+          .otp-boxes { gap: 7px; }
+          .otp-box { font-size: 18px; }
         }
 
         @media (max-width: 380px) {
@@ -1025,6 +1108,10 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
           .auth-root { padding: 40px; }
         }
       `}</style>
+
+      <div className="auth-aurora auth-aurora--one" />
+      <div className="auth-aurora auth-aurora--two" />
+      <div className="auth-aurora auth-aurora--three" />
 
       {/* Toast Container */}
       <div className="toast-container">
@@ -1122,7 +1209,11 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
               >
                 <IconArrowLeft size={15} /> {initialMode === 'verify' ? 'Sign out' : 'Back'}
               </button>
+
+              {initialMode !== 'verify' && <FlowCrumb activeIndex={1} />}
+
               <div className="auth-header">
+                <span className="otp-envelope"><IconEnvelope size={26} /></span>
                 <h1 className="auth-title">Verify your <em>email</em></h1>
                 <p className="auth-sub">
                   Enter the 6-digit code we sent to <strong style={{ color: 'var(--paper)' }}>{otpEmail}</strong>.
@@ -1132,21 +1223,20 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
               <form className="auth-form" onSubmit={handleVerifyOtp}>
                 <div className="form-group">
                   <label className="form-label">Verification Code</label>
-                  <div className={`input-wrap ${otpError ? 'has-error' : ''}`}>
-                    <span className="input-icon"><IconLock size={18} /></span>
-                    <input
-                      ref={otpInputRef}
-                      className="otp-input"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      maxLength={6}
-                      placeholder="000000"
-                      value={otpCode}
-                      onChange={(e) => {
-                        setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6));
-                        setOtpError('');
-                      }}
-                    />
+                  <div className={`otp-boxes ${otpError ? 'has-error' : ''}`} onPaste={handleOtpBoxPaste}>
+                    {Array.from({ length: 6 }, (_, index) => (
+                      <input
+                        key={index}
+                        ref={(el) => { otpBoxRefs.current[index] = el; }}
+                        className={`otp-box ${otpCode[index] ? 'filled' : ''}`}
+                        inputMode="numeric"
+                        autoComplete={index === 0 ? 'one-time-code' : 'off'}
+                        maxLength={1}
+                        value={otpCode[index] || ''}
+                        onChange={(e) => handleOtpBoxChange(index, e.target.value)}
+                        onKeyDown={(e) => handleOtpBoxKeyDown(index, e)}
+                      />
+                    ))}
                   </div>
                   {otpError && <div className="field-error"><IconAlert size={13} /> {otpError}</div>}
                 </div>
@@ -1175,6 +1265,7 @@ export default function AuthScreen({ initialMode = 'login', verifyEmail = '', on
             </div>
           ) : (
             <div className="auth-form-fade" key={isLogin ? 'login' : 'signup'}>
+              {!isLogin && <FlowCrumb activeIndex={0} />}
               <div className="auth-header">
                 <h1 className="auth-title">
                   {isLogin ? 'Welcome back' : <>Create your <em>store</em></>}

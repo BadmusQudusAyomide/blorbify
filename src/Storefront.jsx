@@ -15,6 +15,8 @@ import NoirTemplate from './storefront/NoirTemplate';
 import BloomTemplate from './storefront/BloomTemplate';
 import KitchenTemplate from './storefront/KitchenTemplate';
 import AtelierTemplate from './storefront/AtelierTemplate';
+import VoltTemplate from './storefront/VoltTemplate';
+import NovaTemplate from './storefront/NovaTemplate';
 
 const addToCartPhrases = [
   (name) => `${name} added to your bag`,
@@ -28,6 +30,8 @@ const templateComponents = {
   bloom: BloomTemplate,
   kitchen: KitchenTemplate,
   atelier: AtelierTemplate,
+  volt: VoltTemplate,
+  nova: NovaTemplate,
 };
 
 function redirectTo(url) {

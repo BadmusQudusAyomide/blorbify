@@ -4,9 +4,64 @@ import { db } from './firebase';
 import BusinessInfo from './BusinessInfo';
 import TemplateSelect from './TemplateSelect';
 import LaunchStore from './LaunchStore';
-import { IconBriefcase, IconPalette, IconRocket, IconSparkles, IconCheck } from './onboardingIcons';
+import { IconBriefcase, IconPalette, IconRocket, IconSparkles, IconCheck, IconStore, IconCopy, IconTrophy } from './onboardingIcons';
 import { createStoreSlug, getStoreUrl } from './storeLinks';
 import { buildPublicStorePayload } from './publicStore';
+import { getStoreTemplate } from './storeTemplates';
+import { launchConfetti } from './celebration';
+
+const FLOW_STEPS = ['Sign up', 'Verify email', 'Onboard'];
+
+const FlowCrumb = ({ activeIndex }) => (
+  <div className="flow-crumb">
+    {FLOW_STEPS.map((label, index) => (
+      <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {index > 0 && <span className="flow-crumb-sep" />}
+        <span className={`flow-crumb-item ${index < activeIndex ? 'done' : ''} ${index === activeIndex ? 'active' : ''}`}>
+          <span className="flow-crumb-dot" />
+          {label}
+        </span>
+      </span>
+    ))}
+  </div>
+);
+
+function LaunchCelebration({ data }) {
+  const storeUrl = data?.storeUrl || '';
+  const templateName = getStoreTemplate(data?.template).name;
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(storeUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Clipboard access can fail (permissions/insecure context) — non-critical, ignore silently.
+    }
+  };
+
+  return (
+    <div className="launch-celebration">
+      <span className="launch-celebration-badge">
+        <IconStore size={30} />
+      </span>
+      <h2 className="launch-celebration-title">
+        <IconTrophy size={22} /> Your store is live!
+      </h2>
+      <p className="launch-celebration-sub">{data?.businessName || 'Your store'} is ready for customers — {templateName} template.</p>
+      <button type="button" className="launch-url-chip" onClick={handleCopy}>
+        <span>{storeUrl}</span>
+        <IconCopy size={15} />
+        {copied && <span className="launch-copied-tag">Copied!</span>}
+      </button>
+      <div className="launch-countdown-track">
+        <div className="launch-countdown-fill" />
+      </div>
+      <p className="launch-countdown-label">Taking you to your dashboard…</p>
+    </div>
+  );
+}
 
 class OnboardingErrorBoundary extends React.Component {
   constructor(props) {
@@ -28,7 +83,7 @@ class OnboardingErrorBoundary extends React.Component {
         <div className="onboarding-root">
           <div className="onboarding-card" style={{ maxWidth: 560 }}>
             <h2 style={{ marginTop: 0 }}>We hit a snag</h2>
-            <p style={{ color: '#5C6B6E', lineHeight: 1.6 }}>
+            <p style={{ color: 'var(--slate-dark)', lineHeight: 1.6 }}>
               The onboarding experience could not render correctly. Please refresh and try again.
             </p>
             <button type="button" className="btn btn-primary" onClick={() => this.setState({ hasError: false, error: null })}>
@@ -82,9 +137,12 @@ function sanitizeOnboardingData(data) {
 
 export default function OnboardingScreen({ userId, userProfile, onComplete }) {
   const [currentStep, setCurrentStep] = useState(1);
+  const [direction, setDirection] = useState('forward');
   const [loading, setLoading] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [formData, setFormData] = useState(() => getInitialFormData(userProfile));
+  const [launched, setLaunched] = useState(false);
+  const [launchedData, setLaunchedData] = useState(null);
 
   const updateFormData = (changes) => {
     setFormData((prev) => ({ ...prev, ...changes }));
@@ -110,6 +168,7 @@ export default function OnboardingScreen({ userId, userProfile, onComplete }) {
     setSaveError('');
     try {
       await saveDraft(formData);
+      setDirection('forward');
       setCurrentStep((prev) => Math.min(prev + 1, 3));
     } catch (error) {
       console.error('Onboarding draft save failed:', error);
@@ -125,6 +184,7 @@ export default function OnboardingScreen({ userId, userProfile, onComplete }) {
     } catch (error) {
       console.error('Onboarding draft save failed:', error);
     } finally {
+      setDirection('back');
       setCurrentStep((prev) => Math.max(prev - 1, 1));
     }
   };
@@ -177,7 +237,12 @@ export default function OnboardingScreen({ userId, userProfile, onComplete }) {
         updatedAt: serverTimestamp(),
       }, { merge: true });
 
-      onComplete?.(finalData);
+      setLaunchedData(finalData);
+      setLaunched(true);
+      launchConfetti({ particleCount: 200, originY: 0.3 });
+      setTimeout(() => {
+        onComplete?.(finalData);
+      }, 1900);
     } catch (error) {
       console.error('Onboarding save failed:', error);
       setSaveError('Your onboarding information was not saved. Please try launching again.');
@@ -228,6 +293,7 @@ export default function OnboardingScreen({ userId, userProfile, onComplete }) {
             padding: 24px;
             box-shadow: 0 32px 80px rgba(0,0,0,0.24);
             backdrop-filter: blur(16px);
+            overflow: hidden;
           }
           .onboarding-hero {
             display: flex;
@@ -245,7 +311,7 @@ export default function OnboardingScreen({ userId, userProfile, onComplete }) {
             padding: 8px 12px;
             border-radius: 999px;
             background: rgba(175,255,0,0.16);
-            color: #192328;
+            color: var(--ink);
             font-size: 12px;
             font-weight: 800;
             text-transform: uppercase;
@@ -254,26 +320,27 @@ export default function OnboardingScreen({ userId, userProfile, onComplete }) {
           .onboarding-title {
             font-size: clamp(24px, 3vw, 30px);
             margin: 8px 0 6px;
-            color: #192328;
+            color: var(--ink);
           }
           .onboarding-subtitle {
             margin: 0;
-            color: #5C6B6E;
+            color: var(--slate-dark);
             line-height: 1.6;
             max-width: 560px;
           }
+          .onboarding-card .flow-crumb { margin: 0 0 4px; }
           .progress-track {
             height: 6px;
             border-radius: 999px;
-            background: #EFF3E8;
+            background: var(--paper-dim);
             overflow: hidden;
             margin-bottom: 16px;
           }
           .progress-fill {
             height: 100%;
             border-radius: 999px;
-            background: linear-gradient(90deg, #8FDD00, #AFFF00);
-            transition: width 0.45s cubic-bezier(0.65, 0, 0.35, 1);
+            background: linear-gradient(90deg, var(--signal-dim), var(--signal));
+            transition: width var(--dur-med) cubic-bezier(0.65, 0, 0.35, 1);
           }
           .step-bar {
             display: grid;
@@ -290,19 +357,20 @@ export default function OnboardingScreen({ userId, userProfile, onComplete }) {
             border-radius: 999px;
             font-size: 12px;
             font-weight: 700;
-            color: #5C6B6E;
-            background: #EFF3E8;
+            color: var(--slate-dark);
+            background: var(--paper-dim);
             border: 1px solid transparent;
-            transition: all 0.25s ease;
+            transition: all var(--dur-fast) ease;
           }
           .step-pill.active {
-            background: #AFFF00;
-            color: #192328;
+            background: var(--signal);
+            color: var(--ink);
             box-shadow: 0 10px 24px rgba(175,255,0,0.18);
           }
           .step-pill.done {
-            background: #192328;
-            color: #F6F8F1;
+            background: var(--ink);
+            color: var(--paper);
+            animation: pillPop 0.4s var(--ease-out-expo);
           }
           .step-card {
             border-radius: 22px;
@@ -310,15 +378,16 @@ export default function OnboardingScreen({ userId, userProfile, onComplete }) {
             border: 1px solid rgba(25,35,40,0.06);
             padding: 24px;
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
-            animation: stepFadeSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1);
           }
-          @keyframes stepFadeSlide {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+          .step-transition.dir-forward > .step-card { animation: stepSlideForward var(--dur-med) var(--ease-out-expo); }
+          .step-transition.dir-back > .step-card { animation: stepSlideBack var(--dur-med) var(--ease-out-expo); }
+          @keyframes stepSlideForward {
+            from { opacity: 0; transform: translateX(24px); }
+            to { opacity: 1; transform: translateX(0); }
           }
-          @media (prefers-reduced-motion: reduce) {
-            .step-card { animation: none; }
-            .progress-fill { transition: none; }
+          @keyframes stepSlideBack {
+            from { opacity: 0; transform: translateX(-24px); }
+            to { opacity: 1; transform: translateX(0); }
           }
           .save-error {
             margin: 0 0 14px;
@@ -334,11 +403,11 @@ export default function OnboardingScreen({ userId, userProfile, onComplete }) {
           .step-title {
             font-size: clamp(20px, 2.4vw, 24px);
             font-weight: 800;
-            color: #192328;
+            color: var(--ink);
             margin: 0 0 8px;
           }
           .step-description {
-            color: #5C6B6E;
+            color: var(--slate-dark);
             line-height: 1.6;
             margin: 0 0 18px;
           }
@@ -348,9 +417,104 @@ export default function OnboardingScreen({ userId, userProfile, onComplete }) {
             border-radius: 14px;
             box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
           }
-          .btn-next, .btn-back {
-            border-radius: 999px;
+
+          /* -------- Launch celebration -------- */
+          .launch-celebration {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 28px 12px 12px;
+            animation: stepSlideForward var(--dur-med) var(--ease-out-expo);
           }
+          .launch-celebration-badge {
+            width: 68px;
+            height: 68px;
+            border-radius: 50%;
+            background: rgba(175,255,0,0.16);
+            color: var(--signal-dim);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 18px;
+            animation: popIn 0.5s var(--ease-out-expo);
+          }
+          .launch-celebration-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: clamp(22px, 3vw, 28px);
+            font-weight: 800;
+            color: var(--ink);
+            margin: 0 0 10px;
+          }
+          .launch-celebration-title svg { color: var(--gold); }
+          .launch-celebration-sub {
+            color: var(--slate-dark);
+            line-height: 1.6;
+            max-width: 420px;
+            margin: 0 0 22px;
+          }
+          .launch-url-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 18px;
+            border-radius: 999px;
+            background: #fff;
+            border: 1px solid rgba(25,35,40,0.1);
+            color: var(--ink);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: all var(--dur-fast) var(--ease-out-expo);
+          }
+          .launch-url-chip:hover { border-color: var(--signal-dim); transform: translateY(-2px); box-shadow: 0 10px 24px rgba(175,255,0,0.18); }
+          .launch-copied-tag {
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--ink);
+            color: var(--paper);
+            font-family: 'Raleway', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 999px;
+            animation: popIn 0.25s var(--ease-out-expo);
+          }
+          .launch-countdown-track {
+            width: 100%;
+            max-width: 260px;
+            height: 4px;
+            border-radius: 999px;
+            background: var(--paper-dim);
+            overflow: hidden;
+            margin: 26px 0 8px;
+          }
+          .launch-countdown-fill {
+            height: 100%;
+            width: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--signal-dim), var(--signal));
+            transform: scaleX(0);
+            transform-origin: left;
+            animation: launchCountdown 1.9s linear forwards;
+          }
+          @keyframes launchCountdown {
+            from { transform: scaleX(0); }
+            to { transform: scaleX(1); }
+          }
+          .launch-countdown-label {
+            color: var(--slate-dark);
+            font-size: 12.5px;
+            font-weight: 600;
+            margin: 0;
+          }
+
           @media (max-width: 760px) {
             .onboarding-root { padding: 12px; }
             .onboarding-card { padding: 16px; border-radius: 20px; }
@@ -361,6 +525,8 @@ export default function OnboardingScreen({ userId, userProfile, onComplete }) {
         `}</style>
 
         <div className="onboarding-card">
+          {!launched && <FlowCrumb activeIndex={2} />}
+
           <div className="onboarding-hero">
             <div>
               <div className="onboarding-badge">
@@ -372,25 +538,35 @@ export default function OnboardingScreen({ userId, userProfile, onComplete }) {
             </div>
           </div>
 
-          <div className="progress-track">
-            <div className="progress-fill" style={{ width: `${(currentStep / steps.length) * 100}%` }} />
-          </div>
+          {!launched && (
+            <>
+              <div className="progress-track">
+                <div className="progress-fill" style={{ width: `${(currentStep / steps.length) * 100}%` }} />
+              </div>
 
-          <div className="step-bar">
-            {steps.map((step) => {
-              const done = currentStep > step.id;
-              return (
-                <div key={step.id} className={`step-pill ${currentStep === step.id ? 'active' : ''} ${done ? 'done' : ''}`}>
-                  {done ? <IconCheck size={14} /> : step.icon}
-                  <span>{step.title}</span>
-                </div>
-              );
-            })}
-          </div>
+              <div className="step-bar">
+                {steps.map((step) => {
+                  const done = currentStep > step.id;
+                  return (
+                    <div key={step.id} className={`step-pill ${currentStep === step.id ? 'active' : ''} ${done ? 'done' : ''}`}>
+                      {done ? <IconCheck size={14} /> : step.icon}
+                      <span>{step.title}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
 
-          <div key={currentStep}>
-            {renderStep()}
-          </div>
+          {launched ? (
+            <div key="celebration" className="step-card">
+              <LaunchCelebration data={launchedData} />
+            </div>
+          ) : (
+            <div key={currentStep} className={`step-transition dir-${direction}`}>
+              {renderStep()}
+            </div>
+          )}
 
           {saveError && <div className="save-error">{saveError}</div>}
         </div>

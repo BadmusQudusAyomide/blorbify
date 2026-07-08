@@ -1,5 +1,10 @@
 import { useState } from 'react';
-import { IconBriefcase, IconArrowRight } from './onboardingIcons';
+import { IconBriefcase, IconArrowRight, IconCheck } from './onboardingIcons';
+
+function splitEmojiLabel(label) {
+  const [emoji, ...rest] = label.split(' ');
+  return { emoji, text: rest.join(' ') };
+}
 
 export default function Step1_BusinessInfo({ formData = {}, updateFormData, onNext }) {
   const [errors, setErrors] = useState({});
@@ -69,6 +74,12 @@ export default function Step1_BusinessInfo({ formData = {}, updateFormData, onNe
     setErrors(prev => ({ ...prev, [name]: error }));
   };
 
+  const handleTypeSelect = (value) => {
+    updateFormData({ businessType: value });
+    setTouched(prev => ({ ...prev, businessType: true }));
+    setErrors(prev => ({ ...prev, businessType: validateField('businessType', value) }));
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     
@@ -99,13 +110,13 @@ export default function Step1_BusinessInfo({ formData = {}, updateFormData, onNe
         .form-group { margin-bottom: 18px; }
         .form-label {
           display: block;
-          color: #192328;
+          color: var(--ink);
           font-size: 13px;
           font-weight: 700;
           margin-bottom: 8px;
           letter-spacing: 0.01em;
         }
-        .form-label .required { color: #FF6B6B; margin-left: 4px; }
+        .form-label .required { color: var(--danger); margin-left: 4px; }
         .form-input {
           width: 100%;
           padding: 14px 16px;
@@ -113,42 +124,68 @@ export default function Step1_BusinessInfo({ formData = {}, updateFormData, onNe
           border-radius: 14px;
           font-size: 15px;
           font-family: 'Raleway', sans-serif;
-          color: #192328;
+          color: var(--ink);
           transition: all 0.25s ease;
           background: #fff;
           box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
         }
-        .form-input:focus { outline: none; border-color: #AFFF00; box-shadow: 0 0 0 4px rgba(175,255,0,0.14); }
-        .form-input.error { border-color: #FF6B6B; }
+        .form-input:focus { outline: none; border-color: var(--signal); box-shadow: 0 0 0 4px rgba(175,255,0,0.14); }
+        .form-input.error { border-color: var(--danger); }
         .form-input.error:focus { box-shadow: 0 0 0 4px rgba(255,107,107,0.12); }
-        .form-input::placeholder { color: #5C6B6E; }
+        .form-input::placeholder { color: var(--slate-dark); }
         .form-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M6 8L1 3h10z' fill='%235C6B6E'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 16px center; padding-right: 44px; cursor: pointer; }
         .form-select option { padding: 8px; }
-        .form-error { color: #FF6B6B; font-size: 13px; font-weight: 600; margin-top: 6px; display: flex; align-items: center; gap: 6px; }
+        .form-error { color: var(--danger); font-size: 13px; font-weight: 600; margin-top: 6px; display: flex; align-items: center; gap: 6px; }
         .form-error::before { content: '•'; font-size: 16px; }
-        .form-hint { color: #5C6B6E; font-size: 13px; margin-top: 4px; }
+        .form-hint { color: var(--slate-dark); font-size: 13px; margin-top: 4px; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-        .btn-next {
-          background: #AFFF00;
-          color: #192328;
-          border: none;
-          padding: 13px 20px;
-          border-radius: 999px;
-          font-weight: 800;
-          font-size: 15px;
+
+        .type-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+          gap: 10px;
+        }
+        .type-card {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+          padding: 16px 10px 12px;
+          border-radius: 16px;
+          border: 1px solid rgba(25,35,40,0.1);
+          background: #fff;
           cursor: pointer;
-          transition: all 0.25s ease;
           font-family: 'Raleway', sans-serif;
-          display: inline-flex;
+          transition: all var(--dur-fast) var(--ease-out-expo);
+        }
+        .type-card:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,0.07); }
+        .type-card.selected {
+          border-color: var(--signal);
+          background: rgba(175,255,0,0.08);
+          box-shadow: 0 0 0 3px rgba(175,255,0,0.16);
+        }
+        .type-card-emoji { font-size: 26px; line-height: 1; }
+        .type-card-label { font-size: 12.5px; font-weight: 700; color: var(--ink); text-align: center; line-height: 1.3; }
+        .type-card-check {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background: var(--signal);
+          color: var(--ink);
+          display: flex;
           align-items: center;
           justify-content: center;
-          gap: 10px;
+          animation: popIn 0.25s var(--ease-out-expo);
+        }
+
+        .btn-next {
           margin-top: 8px;
           min-width: 180px;
-          box-shadow: 0 10px 24px rgba(175,255,0,0.2);
         }
-        .btn-next:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(175,255,0,0.28); }
-        .btn-next:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
         .next-row { display: flex; justify-content: flex-end; margin-top: 8px; }
         @media (max-width: 640px) {
           .form-row { grid-template-columns: 1fr; }
@@ -182,20 +219,26 @@ export default function Step1_BusinessInfo({ formData = {}, updateFormData, onNe
           <label className="form-label">
             Business Type <span className="required">*</span>
           </label>
-          <select
-            name="businessType"
-            className={`form-input form-select ${touched.businessType && errors.businessType ? 'error' : ''}`}
-            value={safeFormData.businessType || ''}
-            onChange={handleChange}
-            onBlur={handleBlur}
-          >
-            <option value="">Select your business type</option>
-            {businessTypes.map(type => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </select>
+          <div className="type-grid" role="radiogroup" aria-label="Business type">
+            {businessTypes.map(type => {
+              const { emoji, text } = splitEmojiLabel(type.label);
+              const selected = safeFormData.businessType === type.value;
+              return (
+                <button
+                  key={type.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  className={`type-card ${selected ? 'selected' : ''}`}
+                  onClick={() => handleTypeSelect(type.value)}
+                >
+                  {selected && <span className="type-card-check"><IconCheck size={12} /></span>}
+                  <span className="type-card-emoji">{emoji}</span>
+                  <span className="type-card-label">{text}</span>
+                </button>
+              );
+            })}
+          </div>
           {touched.businessType && errors.businessType && (
             <div className="form-error">{errors.businessType}</div>
           )}

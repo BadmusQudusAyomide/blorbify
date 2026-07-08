@@ -63,7 +63,33 @@ export const atelierTemplate = {
   layout: 'atelier',
 };
 
-export const storeTemplates = [signatureTemplate, noirTemplate, bloomTemplate, kitchenTemplate, atelierTemplate];
+export const voltTemplate = {
+  id: 'volt',
+  name: 'Volt',
+  description: 'A bold, high-energy storefront with big type and hard shadows — for streetwear and Gen-Z brands.',
+  accent: '#FF3EA5',
+  surface: '#0B0B10',
+  ink: '#F5F3EF',
+  card: '#151318',
+  button: '#FF3EA5',
+  buttonText: '#0B0B10',
+  layout: 'volt',
+};
+
+export const novaTemplate = {
+  id: 'nova',
+  name: 'Nova',
+  description: 'A crisp, modern storefront with spec-sheet precision — for electronics, gadgets, and tech brands.',
+  accent: '#3B82F6',
+  surface: '#F4F6F8',
+  ink: '#12161A',
+  card: '#FFFFFF',
+  button: '#12161A',
+  buttonText: '#F4F6F8',
+  layout: 'nova',
+};
+
+export const storeTemplates = [signatureTemplate, noirTemplate, bloomTemplate, kitchenTemplate, atelierTemplate, voltTemplate, novaTemplate];
 
 export const colorPresets = [
   '#AFFF00',

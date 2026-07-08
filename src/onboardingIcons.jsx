@@ -114,3 +114,22 @@ export function IconCheck(props) {
     </IconBase>
   );
 }
+
+export function IconCopy(props) {
+  return (
+    <IconBase {...props}>
+      <rect x="8.5" y="8.5" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M15.5 8.5V6.5A2 2 0 0 0 13.5 4.5h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
+export function IconTrophy(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M8 5h8v5.5A4 4 0 0 1 12 14.5 4 4 0 0 1 8 10.5V5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M8 6.5H5.5a1.5 1.5 0 0 0 0 5H8M16 6.5h2.5a1.5 1.5 0 0 1 0 5H16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M12 14.5v3M9 20.5h6M10 17.5h4v3h-4z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </IconBase>
+  );
+}
