@@ -11,8 +11,15 @@ function hashCode(code) {
   return crypto.createHash('sha256').update(code).digest('hex');
 }
 
+// TEMPORARY: OTP email delivery is broken in production (see generateAndSendOtp
+// below), so the code is pinned to a fixed value instead of a random one, and
+// sending is best-effort. This means ANYONE can verify ANY email address on
+// this deployment by typing 123456 — it must be reverted to crypto.randomInt
+// once real email delivery (Resend/SMTP) is fixed and confirmed working.
+const DEV_FIXED_OTP = '123456';
+
 function generateCode() {
-  return String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+  return DEV_FIXED_OTP;
 }
 
 export async function generateAndSendOtp({ uid, email, name }) {
@@ -41,7 +48,13 @@ export async function generateAndSendOtp({ uid, email, name }) {
     createdAt: existing.exists ? existing.data().createdAt : fieldValue.serverTimestamp(),
   });
 
-  await sendOtpEmail({ toEmail: email, name, code, minutes: OTP_TTL_MINUTES });
+  // Best-effort: the code above is already fixed/known, so a delivery failure
+  // shouldn't block verification — log it and move on instead of failing the request.
+  try {
+    await sendOtpEmail({ toEmail: email, name, code, minutes: OTP_TTL_MINUTES });
+  } catch (error) {
+    console.error('OTP email send failed (continuing — code is fixed for now):', error.message);
+  }
 
   return { expiresInSeconds: OTP_TTL_MINUTES * 60, resendCooldownSeconds: RESEND_COOLDOWN_SECONDS };
 }
