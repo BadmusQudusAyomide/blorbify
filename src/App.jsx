@@ -26,6 +26,42 @@ function StorefrontRoute() {
   return <Storefront slug={storeSlug} />;
 }
 
+// Decides once (on mount, once auth state is known) whether to bounce an
+// already-signed-in visitor away from /login or /signup. It deliberately does
+// NOT re-evaluate when `currentUser` changes afterwards, because both flows
+// mutate `currentUser` themselves mid-flow (e.g. signup creates the account
+// before the OTP step is shown) and would otherwise get redirected away by
+// this route before AuthScreen gets a chance to render that step.
+function AuthOnlyRoute({ authLoading, currentUser, postAuthPath, children }) {
+  // "Adjust state during render" pattern (see react.dev "You might not need
+  // an Effect"): comparing against a value snapshotted from the previous
+  // render lets us freeze the redirect decision the moment authLoading first
+  // resolves, without an Effect (which would cause an extra flicker render)
+  // or a ref (which can't be read during render).
+  //
+  // prevAuthLoading must start `true` regardless of the current authLoading
+  // value. If it started as `authLoading` itself, mounting this route AFTER
+  // the app's initial auth check already resolved (the common case — e.g.
+  // clicking a nav link to /login once the app is settled) would seed
+  // prevAuthLoading === authLoading (both false) on the very first render,
+  // so the "did it just resolve" comparison below would never see a
+  // difference and decision would stay null forever — an infinite loading
+  // screen.
+  const [prevAuthLoading, setPrevAuthLoading] = useState(true);
+  const [decision, setDecision] = useState(null);
+
+  if (authLoading !== prevAuthLoading) {
+    setPrevAuthLoading(authLoading);
+    if (!authLoading && decision === null) {
+      setDecision(Boolean(currentUser));
+    }
+  }
+
+  if (authLoading || decision === null) return <LoadingScreen />;
+  if (decision) return <Navigate to={postAuthPath} replace />;
+  return children;
+}
+
 function AppShell() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
@@ -47,19 +83,29 @@ function AppShell() {
   }, []);
 
   useEffect(() => {
+    // Only the very first callback (resolving whether a session already
+    // exists) should show the full-page loader. Later transitions — signup
+    // creating an account, login succeeding, logout — happen while the user
+    // is already looking at a specific screen (AuthScreen, Dashboard, ...)
+    // which manages its own loading state; swapping in the global
+    // LoadingScreen for those would unmount that screen mid-flow and drop
+    // whatever step it was on (e.g. the post-signup OTP step).
+    let isInitialCheck = true;
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setAuthLoading(true);
+      if (isInitialCheck) setAuthLoading(true);
       setCurrentUser(user);
       if (!user) {
         setUserProfile(null);
-        setAuthLoading(false);
+        if (isInitialCheck) setAuthLoading(false);
+        isInitialCheck = false;
         return;
       }
 
       try {
         await loadUserProfile(user);
       } finally {
-        setAuthLoading(false);
+        if (isInitialCheck) setAuthLoading(false);
+        isInitialCheck = false;
       }
     });
 
@@ -123,26 +169,18 @@ function AppShell() {
       <Route
         path="/login"
         element={
-          authLoading ? (
-            <LoadingScreen />
-          ) : currentUser ? (
-            <Navigate to={postAuthPath} replace />
-          ) : (
+          <AuthOnlyRoute authLoading={authLoading} currentUser={currentUser} postAuthPath={postAuthPath}>
             <AuthScreen initialMode="login" onSuccess={handleAuthSuccess} />
-          )
+          </AuthOnlyRoute>
         }
       />
 
       <Route
         path="/signup"
         element={
-          authLoading ? (
-            <LoadingScreen />
-          ) : currentUser ? (
-            <Navigate to={postAuthPath} replace />
-          ) : (
+          <AuthOnlyRoute authLoading={authLoading} currentUser={currentUser} postAuthPath={postAuthPath}>
             <AuthScreen initialMode="signup" onSuccess={handleAuthSuccess} />
-          )
+          </AuthOnlyRoute>
         }
       />
 
