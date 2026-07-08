@@ -157,6 +157,50 @@ export function markSupportConversationRead(sellerId: string) {
   })
 }
 
+export type LogisticsCompany = {
+  id: string
+  name: string
+  coverage: string
+  description: string
+  whatsapp: string
+  phone: string
+  email: string
+  website: string
+  active: boolean
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type LogisticsCompanyInput = {
+  name: string
+  coverage?: string
+  description?: string
+  whatsapp: string
+  phone?: string
+  email?: string
+  website?: string
+  active?: boolean
+}
+
+export function fetchLogisticsCompanies() {
+  return adminRequest<LogisticsCompany[]>('/admin/logistics-companies')
+}
+
+export function createLogisticsCompany(input: LogisticsCompanyInput) {
+  return adminRequest<LogisticsCompany>('/admin/logistics-companies', { method: 'POST', body: input })
+}
+
+export function updateLogisticsCompany(id: string, input: Partial<LogisticsCompanyInput>) {
+  return adminRequest<LogisticsCompany>(`/admin/logistics-companies/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: input,
+  })
+}
+
+export function deleteLogisticsCompany(id: string) {
+  return adminRequest<{ ok: true }>(`/admin/logistics-companies/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
 export type SubscriptionPlan = {
   id: string
   name: string

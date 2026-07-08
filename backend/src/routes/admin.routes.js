@@ -11,6 +11,12 @@ import {
   postSupportReply,
   postSupportRead,
 } from '../controllers/admin.controller.js';
+import {
+  getLogisticsCompanies,
+  postLogisticsCompany,
+  putLogisticsCompany,
+  removeLogisticsCompany,
+} from '../controllers/logistics.controller.js';
 
 const router = Router();
 
@@ -24,5 +30,9 @@ router.get('/support/conversations', getSupportConversations);
 router.get('/support/conversations/:sellerId/messages', getSupportMessagesForConversation);
 router.post('/support/conversations/:sellerId/messages', postSupportReply);
 router.post('/support/conversations/:sellerId/read', postSupportRead);
+router.get('/logistics-companies', getLogisticsCompanies);
+router.post('/logistics-companies', postLogisticsCompany);
+router.put('/logistics-companies/:companyId', putLogisticsCompany);
+router.delete('/logistics-companies/:companyId', removeLogisticsCompany);
 
 export default router;

@@ -7,6 +7,7 @@ import { OverviewPage } from '@/pages/overview'
 import { SellersPage } from '@/pages/sellers'
 import { SubscriptionsPage } from '@/pages/subscriptions'
 import { OrdersPage } from '@/pages/orders'
+import { LogisticsPage } from '@/pages/logistics'
 import { NotificationsPage } from '@/pages/notifications'
 import { SupportPage } from '@/pages/support'
 import { SettingsPage } from '@/pages/settings'
@@ -28,6 +29,7 @@ function App() {
             <Route path="/sellers" element={<SellersPage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
             <Route path="/orders" element={<OrdersPage />} />
+            <Route path="/logistics" element={<LogisticsPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/support" element={<SupportPage />} />
             <Route path="/settings" element={<SettingsPage />} />
