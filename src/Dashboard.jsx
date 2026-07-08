@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import QRCode from 'qrcode';
 import {
+  addDoc,
   arrayUnion,
   collection,
   deleteDoc,
   doc,
+  getDoc,
+  getDocs,
   limit,
   onSnapshot,
   orderBy,
@@ -24,7 +27,7 @@ import {
   validateStoreLogo,
 } from './cloudinary';
 import { db } from './firebase';
-import { createStoreSlug, getStoreUrl } from './storeLinks';
+import { createStoreSlug, getPublicStoreBaseUrl, getStoreUrl, validateStoreSlugFormat } from './storeLinks';
 import { buildPublicStorePayload } from './publicStore';
 import { getProductImages, getProductCoverImage, MAX_PRODUCT_IMAGES } from './productImages';
 import SellerPayoutPanel from './SellerPayoutPanel';
@@ -44,7 +47,7 @@ import {
 import LivePreviewFrame from './storefront/LivePreviewFrame';
 import StarRating from './storefront/StarRating';
 import { nigerianStates } from './nigerianStates';
-import { notifyLowStock, notifyOrderStatusUpdate, sendOrderReceipt } from './backendApi';
+import { notifyLowStock, notifyOrderStatusUpdate, notifySupportMessage, sendOrderReceipt } from './backendApi';
 import DashboardTour from './DashboardTour';
 
 const emptyStats = {
@@ -154,6 +157,15 @@ const IconShare = (props) => (
 const IconStar = (props) => (
   <IconBase {...props}>
     <path d="m12 4 2.3 4.9 5.3.7-3.9 3.7.9 5.3L12 16l-4.6 2.6.9-5.3-3.9-3.7 5.3-.7Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+  </IconBase>
+);
+
+const IconSupport = (props) => (
+  <IconBase {...props}>
+    <path d="M4 12c0-4.4 3.6-8 8-8s8 3.6 8 8v4.5a2.5 2.5 0 0 1-2.5 2.5H16" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    <rect x="3" y="12" width="4" height="5.5" rx="1.5" stroke="currentColor" strokeWidth="1.7" />
+    <rect x="17" y="12" width="4" height="5.5" rx="1.5" stroke="currentColor" strokeWidth="1.7" />
+    <path d="M13.5 19h-2a1.5 1.5 0 0 1 0-3h2a1.5 1.5 0 0 1 0 3Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
   </IconBase>
 );
 
@@ -671,6 +683,41 @@ async function publishPublicStore(storeInfo, userId) {
     ...buildPublicStorePayload({ ...storeInfo, storeSlug }, userId),
     updatedAt: serverTimestamp(),
   }, { merge: true });
+}
+
+// Firestore's publicStores/{slug} doc is keyed BY the slug itself, so a slug
+// change can't be an in-place update — it has to create a new doc, migrate
+// the reviews subcollection (also keyed off the old slug), then retire the
+// old doc. Called only when the slug actually changed.
+async function renameStorePublicDoc({ userId, storeInfo, oldSlug, newSlug }) {
+  const targetRef = doc(db, 'publicStores', newSlug);
+  const targetSnap = await getDoc(targetRef);
+  if (targetSnap.exists() && targetSnap.data()?.ownerId !== userId) {
+    throw new Error('This store URL is already taken. Please choose another.');
+  }
+
+  await setDoc(targetRef, {
+    ...buildPublicStorePayload({ ...storeInfo, storeSlug: newSlug }, userId),
+    updatedAt: serverTimestamp(),
+  });
+
+  if (oldSlug) {
+    try {
+      const reviewsSnap = await getDocs(collection(db, 'publicStores', oldSlug, 'reviews'));
+      await Promise.all(reviewsSnap.docs.map((reviewDoc) =>
+        setDoc(doc(db, 'publicStores', newSlug, 'reviews', reviewDoc.id), reviewDoc.data())
+      ));
+      await Promise.all(reviewsSnap.docs.map((reviewDoc) =>
+        deleteDoc(doc(db, 'publicStores', oldSlug, 'reviews', reviewDoc.id))
+      ));
+      await deleteDoc(doc(db, 'publicStores', oldSlug));
+    } catch (cleanupError) {
+      // The new doc + reviews are already migrated and live at the new slug —
+      // the store is fully functional even if this best-effort cleanup of the
+      // old slug's doc fails, so it's logged rather than surfaced as an error.
+      console.error('Old store slug cleanup failed (non-fatal):', cleanupError);
+    }
+  }
 }
 
 function ProductManager({ userId, storeInfo, products, onProductsSaved }) {
@@ -1299,6 +1346,7 @@ function BusinessInfoEditor({ userId, profile, storeInfo, onBusinessSaved }) {
     city: storeInfo.city || profile?.city || '',
     state: storeInfo.state || profile?.state || '',
     instagram: storeInfo.instagram || profile?.instagram || '',
+    storeSlug: storeInfo.storeSlug || profile?.storeSlug || '',
   });
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(getCurrentForm);
@@ -1332,6 +1380,8 @@ function BusinessInfoEditor({ userId, profile, storeInfo, onBusinessSaved }) {
     if (!/^[0-9]{10,11}$/.test(form.phone.replace(/\D/g, ''))) return 'Enter a valid phone number.';
     if (!form.city.trim()) return 'City is required.';
     if (!form.state) return 'Select your state.';
+    const slugError = validateStoreSlugFormat(form.storeSlug);
+    if (slugError) return slugError;
     return '';
   };
 
@@ -1346,6 +1396,9 @@ function BusinessInfoEditor({ userId, profile, storeInfo, onBusinessSaved }) {
       return;
     }
 
+    const currentSlug = storeInfo.storeSlug || profile?.storeSlug || '';
+    const nextSlug = createStoreSlug(form.storeSlug);
+
     const businessUpdate = {
       businessName: form.businessName.trim(),
       businessType: form.businessType,
@@ -1354,6 +1407,8 @@ function BusinessInfoEditor({ userId, profile, storeInfo, onBusinessSaved }) {
       city: form.city.trim(),
       state: form.state,
       instagram: form.instagram.trim(),
+      storeSlug: nextSlug,
+      storeUrl: getStoreUrl(nextSlug),
     };
     const nextStoreInfo = {
       ...(storeInfo || {}),
@@ -1374,6 +1429,16 @@ function BusinessInfoEditor({ userId, profile, storeInfo, onBusinessSaved }) {
 
     setSaving(true);
     try {
+      // The public store doc (and, for a slug change, the uniqueness check) is
+      // written first and can throw — e.g. "already taken" — before touching
+      // stores/{uid} or users/{uid}, so a rejected slug never leaves the
+      // seller's own records pointing at a slug that was never published.
+      if (nextSlug === currentSlug) {
+        await publishPublicStore(nextStoreInfo, userId);
+      } else {
+        await renameStorePublicDoc({ userId, storeInfo: nextStoreInfo, oldSlug: currentSlug, newSlug: nextSlug });
+      }
+
       await setDoc(doc(db, 'stores', userId), {
         ...businessUpdate,
         updatedAt: serverTimestamp(),
@@ -1384,7 +1449,6 @@ function BusinessInfoEditor({ userId, profile, storeInfo, onBusinessSaved }) {
         onboardingDraft: nextOnboardingDraft,
         updatedAt: serverTimestamp(),
       }, { merge: true });
-      await publishPublicStore(nextStoreInfo, userId);
 
       onBusinessSaved(nextStoreInfo);
       setEditing(false);
@@ -1406,7 +1470,7 @@ function BusinessInfoEditor({ userId, profile, storeInfo, onBusinessSaved }) {
           <DetailRow label="Location" value={[storeInfo.city || profile?.city, storeInfo.state || profile?.state].filter(Boolean).join(', ')} />
           <DetailRow label="Instagram" value={storeInfo.instagram || profile?.instagram} />
           <DetailRow label="Delivery fee" value={formatCurrency(storeInfo.deliveryFee)} />
-          <DetailRow label="Store slug" value={storeInfo.storeSlug || profile?.storeSlug} />
+          <DetailRow label="Store URL" value={getStoreUrl(storeInfo.storeSlug || profile?.storeSlug)} />
         </div>
         {success && <div className="form-alert success">{success}</div>}
         <button type="button" className="secondary-action" onClick={startEditing}>
@@ -1458,7 +1522,23 @@ function BusinessInfoEditor({ userId, profile, storeInfo, onBusinessSaved }) {
             ))}
           </select>
         </label>
+        <label className="field-group full">
+          <span>Store URL</span>
+          <div className="slug-field-row">
+            <span className="slug-prefix">{getPublicStoreBaseUrl().replace(/^https?:\/\//, '')}/</span>
+            <input value={form.storeSlug} onChange={(event) => updateField('storeSlug', event.target.value)} placeholder="your-store-name" maxLength="40" />
+          </div>
+          <span className="field-hint">
+            {form.storeSlug ? `Will be saved as: ${createStoreSlug(form.storeSlug)}` : 'Letters, numbers, and hyphens only.'}
+          </span>
+        </label>
       </div>
+
+      {createStoreSlug(form.storeSlug) !== (storeInfo.storeSlug || profile?.storeSlug || '') && (
+        <div className="form-alert warning">
+          Changing your store URL breaks any links you've already shared (Instagram bio, WhatsApp, ads, QR codes, etc.) — they'll stop working once you save. Your new link will be <strong>{getStoreUrl(form.storeSlug)}</strong>.
+        </div>
+      )}
 
       {error && <div className="form-alert error">{error}</div>}
       {success && <div className="form-alert success">{success}</div>}
@@ -2124,6 +2204,178 @@ function PosPanel({ storeUrl }) {
   );
 }
 
+const SUPPORT_BOT_TOPICS = [
+  { keywords: ['payout', 'payment', 'withdraw', 'bank'], reply: "Payouts are sent to the bank account on file under Payouts. If a payout looks delayed, check its status there — our team will follow up here shortly too." },
+  { keywords: ['deliver', 'shipping', 'courier'], reply: "Delivery fees and logistics options live under the Logistics tab. If this is about a specific order, share the order ID and we'll take a look." },
+  { keywords: ['template', 'design', 'theme', 'color', 'appearance'], reply: "You can change your store's look anytime from the Appearance tab — template, colors, and copy update instantly. Let us know if something isn't rendering right." },
+  { keywords: ['slug', 'url', 'link', 'domain'], reply: "Your store URL can be changed from Business Info. Changing it breaks any previously shared links, so let us know if you need help deciding on a new one." },
+  { keywords: ['order', 'refund', 'cancel'], reply: "For a specific order issue, share the order ID and what's wrong — our team will check it and get back to you." },
+];
+const SUPPORT_BOT_DEFAULT_REPLY = "Thanks for reaching out! We've received your message and a member of the Blorbify team will reply here soon — usually within a few hours.";
+
+function pickSupportBotReply(messageText) {
+  const lower = messageText.toLowerCase();
+  const match = SUPPORT_BOT_TOPICS.find((topic) => topic.keywords.some((keyword) => lower.includes(keyword)));
+  return match ? match.reply : SUPPORT_BOT_DEFAULT_REPLY;
+}
+
+function SupportChatPanel({ userId, storeInfo, profile }) {
+  const [messages, setMessages] = useState([]);
+  const [loadingMessages, setLoadingMessages] = useState(true);
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    if (!userId) return undefined;
+
+    const messagesQuery = query(
+      collection(db, 'supportConversations', userId, 'messages'),
+      orderBy('createdAt', 'asc')
+    );
+    const unsubscribe = onSnapshot(
+      messagesQuery,
+      (snapshot) => {
+        setMessages(snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
+        setLoadingMessages(false);
+      },
+      (error) => {
+        console.error('Support chat listener failed:', error);
+        setLoadingMessages(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [userId]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length]);
+
+  const hasAdminReplied = messages.some((message) => message.senderType === 'admin');
+
+  const handleSend = async (event) => {
+    event.preventDefault();
+    const trimmed = text.trim();
+    if (!trimmed || sending) return;
+
+    setSending(true);
+    const senderName = storeInfo?.businessName || profile?.businessName || 'Seller';
+    const conversationRef = doc(db, 'supportConversations', userId);
+
+    try {
+      await addDoc(collection(conversationRef, 'messages'), {
+        senderType: 'seller',
+        senderName,
+        text: trimmed,
+        createdAt: serverTimestamp(),
+      });
+
+      await setDoc(
+        conversationRef,
+        {
+          sellerId: userId,
+          storeName: storeInfo?.businessName || profile?.businessName || '',
+          ownerName: [profile?.firstName, profile?.lastName].filter(Boolean).join(' '),
+          email: profile?.email || '',
+          lastMessageText: trimmed,
+          lastMessageAt: serverTimestamp(),
+          lastMessageSender: 'seller',
+          unreadByAdmin: true,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      setText('');
+
+      // Auto-reply only while no admin has ever engaged in this conversation
+      // — once a real person has replied, the bot stays quiet from then on.
+      if (!hasAdminReplied) {
+        const botReply = pickSupportBotReply(trimmed);
+        setTimeout(() => {
+          addDoc(collection(conversationRef, 'messages'), {
+            senderType: 'bot',
+            senderName: 'Blorbify Bot',
+            text: botReply,
+            createdAt: serverTimestamp(),
+          })
+            .then(() =>
+              setDoc(
+                conversationRef,
+                {
+                  lastMessageText: botReply,
+                  lastMessageAt: serverTimestamp(),
+                  lastMessageSender: 'bot',
+                  updatedAt: serverTimestamp(),
+                },
+                { merge: true }
+              )
+            )
+            .catch((error) => console.error('Support bot auto-reply failed:', error));
+        }, 1500);
+      }
+
+      notifySupportMessage({ messagePreview: trimmed.slice(0, 300) }).catch((error) => {
+        console.error('Support message admin notification failed:', error);
+      });
+    } catch (error) {
+      console.error('Sending support message failed:', error);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="support-chat">
+      <p className="partner-intro">
+        Have a question or ran into an issue? Message the Blorbify team here — we typically reply within a few hours.
+      </p>
+      <div className="support-chat-window">
+        {loadingMessages ? (
+          <div className="empty-state">Loading conversation…</div>
+        ) : messages.length === 0 ? (
+          <div className="empty-state">
+            <strong>No messages yet.</strong>
+            <br />
+            Send a message below to reach the Blorbify support team.
+          </div>
+        ) : (
+          <div className="support-chat-messages">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`support-bubble-row ${message.senderType === 'seller' ? 'from-seller' : 'from-support'}`}
+              >
+                <div className={`support-bubble ${message.senderType}`}>
+                  <span className="support-bubble-sender">
+                    {message.senderType === 'seller' ? 'You' : message.senderType === 'bot' ? 'Blorbify Bot' : 'Blorbify Support'}
+                  </span>
+                  <p>{message.text}</p>
+                </div>
+              </div>
+            ))}
+            <div ref={bottomRef} />
+          </div>
+        )}
+      </div>
+      <form className="support-chat-form" onSubmit={handleSend}>
+        <textarea
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          placeholder="Type your message…"
+          rows={2}
+          maxLength={1000}
+        />
+        <button type="submit" className="product-submit" disabled={sending || !text.trim()}>
+          {sending ? 'Sending...' : 'Send'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 export default function Dashboard({ user, userProfile, onLogout }) {
   const navigate = useNavigate();
   const { tab: tabParam, orderId } = useParams();
@@ -2275,6 +2527,7 @@ export default function Dashboard({ user, userProfile, onLogout }) {
     { id: 'payouts', label: 'Payouts', icon: IconWallet },
     { id: 'billing', label: 'Billing', icon: IconWallet },
     { id: 'reports', label: 'Reports', icon: IconChart },
+    { id: 'support', label: 'Support', icon: IconSupport },
   ];
 
   if (loading) {
@@ -2705,6 +2958,58 @@ export default function Dashboard({ user, userProfile, onLogout }) {
           background: var(--paper);
         }
         .pos-download { width: fit-content; text-decoration: none; }
+        .support-chat { display: flex; flex-direction: column; gap: 14px; }
+        .support-chat-window {
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          background: var(--paper);
+          min-height: 320px;
+          max-height: 480px;
+          overflow-y: auto;
+          padding: 16px;
+        }
+        .support-chat-messages { display: flex; flex-direction: column; gap: 10px; }
+        .support-bubble-row { display: flex; }
+        .support-bubble-row.from-seller { justify-content: flex-end; }
+        .support-bubble-row.from-support { justify-content: flex-start; }
+        .support-bubble {
+          max-width: 70%;
+          padding: 10px 13px;
+          border-radius: 12px;
+          background: #fff;
+          border: 1px solid var(--line);
+        }
+        .support-bubble.seller { background: var(--signal); border-color: var(--signal); }
+        .support-bubble.bot { background: var(--paper-dim, #eff3e8); }
+        .support-bubble-sender {
+          display: block;
+          font-size: 11px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: .04em;
+          color: var(--slate);
+          margin-bottom: 3px;
+        }
+        .support-bubble.seller .support-bubble-sender { color: var(--ink); opacity: .65; }
+        .support-bubble p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+        .support-chat-form { display: flex; gap: 10px; align-items: flex-end; }
+        .support-chat-form textarea {
+          flex: 1;
+          min-width: 0;
+          padding: 10px 12px;
+          border: 1px solid var(--line);
+          border-radius: 8px;
+          font: inherit;
+          font-size: 14px;
+          color: var(--ink);
+          background: #fff;
+          resize: vertical;
+          min-height: 44px;
+        }
+        @media (max-width: 640px) {
+          .support-bubble { max-width: 85%; }
+          .support-chat-form { flex-direction: column; align-items: stretch; }
+        }
         .referrals-orders { margin-top: 24px; }
         .coupon-active-toggle { flex-direction: row; align-items: center; gap: 8px; }
         .coupon-active-toggle input[type="checkbox"] { width: auto; }
@@ -3299,6 +3604,43 @@ export default function Dashboard({ user, userProfile, onLogout }) {
         .field-group textarea:focus {
           border-color: #9bdc00;
           box-shadow: 0 0 0 4px rgba(175,255,0,.15);
+        }
+        .slug-field-row {
+          display: flex;
+          align-items: stretch;
+          border: 1px solid var(--line);
+          border-radius: 8px;
+          background: #fff;
+          overflow: hidden;
+        }
+        .slug-field-row:focus-within {
+          border-color: #9bdc00;
+          box-shadow: 0 0 0 4px rgba(175,255,0,.15);
+        }
+        .field-group .slug-prefix {
+          display: flex;
+          align-items: center;
+          padding: 0 0 0 13px;
+          color: var(--slate);
+          font-size: 13px;
+          font-weight: 600;
+          text-transform: none;
+          letter-spacing: normal;
+          white-space: nowrap;
+        }
+        .slug-field-row input {
+          border: 0;
+          padding-left: 2px;
+        }
+        .slug-field-row input:focus {
+          box-shadow: none;
+        }
+        .field-group .field-hint {
+          color: var(--slate);
+          font-size: 12px;
+          font-weight: 500;
+          text-transform: none;
+          letter-spacing: normal;
         }
         .business-info-view,
         .business-info-form {
@@ -3978,6 +4320,15 @@ export default function Dashboard({ user, userProfile, onLogout }) {
                 <h3>Reports</h3>
               </div>
               <ReportsPanel user={user} />
+            </div>
+          )}
+
+          {activeTab === 'support' && (
+            <div className="content-card full-span">
+              <div className="card-header">
+                <h3>Support</h3>
+              </div>
+              <SupportChatPanel userId={user.uid} storeInfo={storeInfo} profile={profile} />
             </div>
           )}
         </section>

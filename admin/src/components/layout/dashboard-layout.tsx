@@ -20,6 +20,7 @@ const titles: Record<string, string> = {
   '/subscriptions': 'Subscriptions & Billing',
   '/orders': 'Orders',
   '/notifications': 'Notifications',
+  '/support': 'Support',
   '/settings': 'Settings',
 }
 

@@ -1,5 +1,6 @@
 import { getMailerTransport, isMailerConfigured, isResendConfigured, sendResendEmail } from '../config/mailer.js';
 import { adminDb, fieldValue } from '../config/firebaseAdmin.js';
+import { env } from '../config/env.js';
 import { escapeHtml, getDashboardUrl, renderEmailCodeBlock, renderEmailCodePill, renderEmailLayout } from '../utils/emailTemplate.js';
 
 export async function queueNotification(notification) {
@@ -226,6 +227,38 @@ export async function sendLowStockEmail({ toEmail, storeName, productName, stock
     html,
     text,
     data: { type: 'low-stock', productName, stock },
+  });
+}
+
+export async function notifyAdminOfNewSupportMessage({ sellerName, storeName, messagePreview }) {
+  const recipients = env.adminEmails.join(',');
+  if (!recipients) {
+    return { sent: false, skipped: true };
+  }
+
+  const resolvedName = sellerName || 'A seller';
+  const resolvedStore = storeName || 'their store';
+  const subject = `New support message from ${resolvedStore}`;
+  const adminSupportUrl = `${env.adminAppBaseUrl.replace(/\/+$/g, '')}/support`;
+  const html = renderEmailLayout({
+    preheader: messagePreview,
+    heading: 'New support message',
+    bodyHtml: `
+      <p style="margin:0 0 14px;">${escapeHtml(resolvedName)} (${escapeHtml(resolvedStore)}) just sent a new support message:</p>
+      <div style="margin:0 0 14px; padding:12px 16px; border-left:3px solid #afff00; background:rgba(175,255,0,0.06); border-radius:8px; font-style:italic;">${escapeHtml(messagePreview || '')}</div>
+    `,
+    ctaLabel: 'Reply in admin console',
+    ctaUrl: adminSupportUrl,
+    footerNote: 'Sent because a seller messaged Blorbify support.',
+  });
+  const text = `${subject}\n\n${resolvedName} (${resolvedStore}) just sent a new support message:\n\n${messagePreview || ''}\n\n${adminSupportUrl}`;
+
+  return sendEmail({
+    to: recipients,
+    subject,
+    html,
+    text,
+    data: { type: 'support-message' },
   });
 }
 

@@ -24,3 +24,16 @@ export function createStoreSlug(value) {
 export function getStoreUrl(slug) {
   return `${getPublicStoreBaseUrl()}/${createStoreSlug(slug)}`;
 }
+
+export const RESERVED_STORE_SLUGS = [
+  'login', 'signup', 'onboarding', 'dashboard', 'verify-email', 'payment',
+  'admin', 'api', 'app', 'www', 'store', 'stores',
+];
+
+export function validateStoreSlugFormat(rawValue) {
+  if (!rawValue || !rawValue.trim()) return 'Store URL is required.';
+  const normalized = createStoreSlug(rawValue);
+  if (normalized.length < 3) return 'Store URL must be at least 3 characters.';
+  if (RESERVED_STORE_SLUGS.includes(normalized)) return 'This URL is reserved. Please choose another.';
+  return '';
+}

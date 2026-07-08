@@ -29,7 +29,10 @@ async function parseResponse<T>(response: Response): Promise<T> {
   return data.data as T
 }
 
-async function adminRequest<T>(path: string): Promise<T> {
+async function adminRequest<T>(
+  path: string,
+  options: { method?: string; body?: unknown } = {}
+): Promise<T> {
   const user = auth.currentUser
   if (!user) {
     throw new Error('You need to sign in before calling the backend.')
@@ -38,7 +41,12 @@ async function adminRequest<T>(path: string): Promise<T> {
   const token = await user.getIdToken()
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
   const response = await fetch(`${getBackendBaseUrl()}${normalizedPath}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    method: options.method || 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
   })
 
   return parseResponse<T>(response)
@@ -106,6 +114,47 @@ export function fetchAdminOrders(limit = 100) {
 
 export function fetchAdminNotifications(limit = 50) {
   return adminRequest<AdminNotification[]>(`/admin/notifications?limit=${limit}`)
+}
+
+export type SupportConversation = {
+  sellerId: string
+  storeName: string
+  ownerName: string
+  email: string
+  lastMessageText: string
+  lastMessageAt: string | null
+  lastMessageSender: 'seller' | 'admin' | 'bot'
+  unreadByAdmin: boolean
+  hasAdminReplied: boolean
+}
+
+export type SupportMessage = {
+  id: string
+  senderType: 'seller' | 'admin' | 'bot'
+  senderName: string
+  text: string
+  createdAt: string | null
+}
+
+export function fetchSupportConversations() {
+  return adminRequest<SupportConversation[]>('/admin/support/conversations')
+}
+
+export function fetchSupportMessages(sellerId: string) {
+  return adminRequest<SupportMessage[]>(`/admin/support/conversations/${encodeURIComponent(sellerId)}/messages`)
+}
+
+export function sendSupportReply(sellerId: string, text: string) {
+  return adminRequest<SupportMessage>(`/admin/support/conversations/${encodeURIComponent(sellerId)}/messages`, {
+    method: 'POST',
+    body: { text },
+  })
+}
+
+export function markSupportConversationRead(sellerId: string) {
+  return adminRequest<{ ok: true }>(`/admin/support/conversations/${encodeURIComponent(sellerId)}/read`, {
+    method: 'POST',
+  })
 }
 
 export type SubscriptionPlan = {

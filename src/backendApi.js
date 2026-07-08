@@ -194,3 +194,11 @@ export async function notifyLowStock({ productName, stock }, token) {
     body: { productName, stock },
   });
 }
+
+export async function notifySupportMessage({ messagePreview }, token) {
+  return backendRequest('/notifications/support-message', {
+    method: 'POST',
+    token,
+    body: { messagePreview },
+  });
+}

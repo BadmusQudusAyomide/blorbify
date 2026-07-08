@@ -8,6 +8,7 @@ import {
   sendEmail,
   sendLowStockEmail,
   sendOrderStatusEmail,
+  notifyAdminOfNewSupportMessage,
 } from '../services/notification.service.js';
 import { sendSellerOrderReceiptEmail } from '../services/receipt.service.js';
 import { escapeHtml, getDashboardUrl, renderEmailCodePill, renderEmailLayout } from '../utils/emailTemplate.js';
@@ -131,5 +132,29 @@ export const sendLowStockAlert = asyncHandler(async (req, res) => {
   }
 
   const result = await sendLowStockEmail({ toEmail, storeName, productName, stock: Number(stock) });
+  return ok(res, { data: result });
+});
+
+export const sendSupportMessageAlert = asyncHandler(async (req, res) => {
+  const { messagePreview } = req.body || {};
+  if (!messagePreview) {
+    throw createHttpError(400, 'messagePreview is required.');
+  }
+
+  let sellerName = '';
+  let storeName = '';
+
+  const userSnap = await adminDb.collection('users').doc(req.user.uid).get();
+  if (userSnap.exists) {
+    const userData = userSnap.data();
+    sellerName = [userData.firstName, userData.lastName].filter(Boolean).join(' ').trim();
+  }
+
+  const storeSnap = await adminDb.collection('stores').doc(req.user.uid).get();
+  if (storeSnap.exists) {
+    storeName = storeSnap.data().businessName || '';
+  }
+
+  const result = await notifyAdminOfNewSupportMessage({ sellerName, storeName, messagePreview });
   return ok(res, { data: result });
 });

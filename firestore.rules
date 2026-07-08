@@ -25,7 +25,12 @@ service cloud.firestore {
     }
 
     match /publicStores/{storeSlug} {
-      allow read: if resource.data.published == true || isOwner(resource.data.ownerId);
+      // `resource == null` handles reading a slug that doesn't exist yet (e.g.
+      // checking whether a new store URL is available before claiming it) —
+      // without this, referencing resource.data on a nonexistent doc errors
+      // out during rule evaluation, which Firestore treats as a denial rather
+      // than "not found". Exposes no data, since there is none to expose.
+      allow read: if resource == null || resource.data.published == true || isOwner(resource.data.ownerId);
       allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
       allow update: if isSignedIn()
         && request.resource.data.ownerId == request.auth.uid
@@ -88,6 +93,24 @@ service cloud.firestore {
     match /invoices/{invoiceId} {
       allow read: if isSignedIn() && resource.data.sellerId == request.auth.uid;
       allow write: if false;
+    }
+
+    // Seller support chat. The admin console never touches Firestore directly
+    // — every admin read/write goes through the backend's Admin SDK, which
+    // bypasses these rules entirely, so no admin-specific allowance is needed
+    // here. Only the seller's own conversation is reachable from the client.
+    match /supportConversations/{sellerId} {
+      allow read: if isOwner(sellerId);
+      allow create: if isOwner(sellerId) && request.resource.data.sellerId == sellerId;
+      allow update: if isOwner(sellerId);
+
+      match /messages/{messageId} {
+        allow read: if isOwner(sellerId);
+        // Only 'seller' and 'bot' — a seller's own client can never write a
+        // message impersonating 'admin'. Real admin replies only ever happen
+        // via the Admin SDK. No update/delete: messages are immutable once sent.
+        allow create: if isOwner(sellerId) && request.resource.data.senderType in ['seller', 'bot'];
+      }
     }
 
     match /{document=**} {

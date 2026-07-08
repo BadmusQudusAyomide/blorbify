@@ -5,6 +5,7 @@ import {
   CreditCard,
   ShoppingCart,
   Bell,
+  MessageCircle,
   Settings,
   ShieldCheck,
   LogOut,
@@ -31,6 +32,7 @@ const navItems = [
   { title: 'Subscriptions & Billing', url: '/subscriptions', icon: CreditCard },
   { title: 'Orders', url: '/orders', icon: ShoppingCart },
   { title: 'Notifications', url: '/notifications', icon: Bell },
+  { title: 'Support', url: '/support', icon: MessageCircle },
   { title: 'Settings', url: '/settings', icon: Settings },
 ]
 

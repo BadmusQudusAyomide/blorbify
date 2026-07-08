@@ -6,6 +6,7 @@ import {
   sendLowStockAlert,
   sendOrderReceipt,
   sendOrderStatusUpdate,
+  sendSupportMessageAlert,
   sendWelcomeEmail,
 } from '../controllers/notifications.controller.js';
 
@@ -17,5 +18,6 @@ router.post('/orders', queueOrderNotice);
 router.post('/order-status', requireAuth, sendOrderStatusUpdate);
 router.post('/orders/receipt', requireAuth, sendOrderReceipt);
 router.post('/low-stock', requireAuth, sendLowStockAlert);
+router.post('/support-message', requireAuth, sendSupportMessageAlert);
 
 export default router;

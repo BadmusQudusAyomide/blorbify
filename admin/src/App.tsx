@@ -8,6 +8,7 @@ import { SellersPage } from '@/pages/sellers'
 import { SubscriptionsPage } from '@/pages/subscriptions'
 import { OrdersPage } from '@/pages/orders'
 import { NotificationsPage } from '@/pages/notifications'
+import { SupportPage } from '@/pages/support'
 import { SettingsPage } from '@/pages/settings'
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
             <Route path="/orders" element={<OrdersPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
+            <Route path="/support" element={<SupportPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Routes>

@@ -43,6 +43,7 @@ export const env = {
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean),
   appBaseUrl: process.env.APP_BASE_URL || 'http://localhost:5173',
+  adminAppBaseUrl: process.env.ADMIN_APP_BASE_URL || 'http://localhost:5174',
   paystackSecretKey: process.env.PAYSTACK_SECRET_KEY || '',
   paystackPublicKey: process.env.PAYSTACK_PUBLIC_KEY || '',
   paystackBaseUrl: process.env.PAYSTACK_BASE_URL || 'https://api.paystack.co',
