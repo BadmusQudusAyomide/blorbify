@@ -58,6 +58,9 @@ export const env = {
   resendApiKey: process.env.RESEND_API_KEY || '',
   resendFrom: process.env.RESEND_FROM || '',
   platformReportEmail: process.env.PLATFORM_REPORT_EMAIL || 'blorbmart@gmail.com',
+  xaiApiKey: process.env.XAI_API_KEY || '',
+  xaiBaseUrl: process.env.XAI_BASE_URL || 'https://api.x.ai',
+  xaiModel: process.env.XAI_MODEL || 'grok-4.3',
 };
 
 export function isProduction() {

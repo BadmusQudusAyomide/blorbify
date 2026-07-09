@@ -210,3 +210,11 @@ export async function notifySupportMessage({ messagePreview }, token) {
     body: { messagePreview },
   });
 }
+
+export async function generateProductDescription({ name, category, price, type }, token) {
+  return backendRequest('/ai/product-description', {
+    method: 'POST',
+    token,
+    body: { name, category, price, type },
+  });
+}

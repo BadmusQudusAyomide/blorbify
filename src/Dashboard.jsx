@@ -52,6 +52,7 @@ import StarRating from './storefront/StarRating';
 import { nigerianStates } from './nigerianStates';
 import {
   confirmEmailChange,
+  generateProductDescription,
   notifyLowStock,
   notifyOrderStatusUpdate,
   notifySupportMessage,
@@ -789,6 +790,7 @@ function ProductManager({ userId, storeInfo, products, onProductsSaved }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [warning, setWarning] = useState('');
+  const [generatingDescription, setGeneratingDescription] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -1085,6 +1087,31 @@ function ProductManager({ userId, storeInfo, products, onProductsSaved }) {
     });
   };
 
+  const handleGenerateDescription = async () => {
+    const name = form.name.trim();
+    if (!name) {
+      setError('Enter a product name first so AI knows what to write about.');
+      return;
+    }
+
+    setGeneratingDescription(true);
+    setError('');
+    setSuccess('');
+    try {
+      const response = await generateProductDescription({
+        name,
+        category: form.category,
+        price: form.price,
+        type: form.type,
+      });
+      updateField('description', response.data.description);
+    } catch (generateError) {
+      setError(generateError?.message || 'Could not generate a description. Please try again.');
+    } finally {
+      setGeneratingDescription(false);
+    }
+  };
+
   const handleDelete = async (productKey) => {
     const product = products.find((item, index) => getProductKey(item, index) === productKey);
     if (!product || !window.confirm(`Remove ${product.name} from your store?`)) {
@@ -1141,7 +1168,17 @@ function ProductManager({ userId, storeInfo, products, onProductsSaved }) {
               </label>
             )}
             <label className="field-group full">
-              <span>Description</span>
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                Description
+                <button
+                  type="button"
+                  onClick={handleGenerateDescription}
+                  disabled={generatingDescription || saving}
+                  style={{ fontSize: '0.85em' }}
+                >
+                  {generatingDescription ? 'Generating…' : '✨ Generate with AI'}
+                </button>
+              </span>
               <textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} placeholder="Short product details customers should know" rows="3" />
             </label>
           </div>
