@@ -123,6 +123,36 @@ export function uploadStoreBanner(file, folder = 'blorbify/banners', onProgress)
   return uploadImage(file, folder, onProgress, 'Store banner');
 }
 
+// Maskable PWA icons get cropped into a circle/squircle on Android, so the
+// logo itself needs to sit within the center "safe zone" — the rest is
+// background padding. Content is padded to 60% of the target size first,
+// then that's padded again to the full canvas so the margin blends in.
+const MASKABLE_SAFE_ZONE_RATIO = 0.6;
+
+// Reshapes a seller's uploaded store logo (any aspect ratio, any source
+// dimensions) into the exact square PNG a web app manifest icon needs, via
+// the same on-the-fly Cloudinary transform trick used for WhatsApp/Facebook
+// link previews (see middleware.js's withCloudinaryPreviewTransform).
+export function getCloudinaryIconUrl(imageUrl, { size, maskable = false, backgroundColor = '#ffffff' } = {}) {
+  if (!imageUrl) return '';
+
+  const marker = '/upload/';
+  const markerIndex = imageUrl.indexOf(marker);
+  if (markerIndex === -1) return imageUrl;
+
+  const insertAt = markerIndex + marker.length;
+  const prefix = imageUrl.slice(0, insertAt);
+  const path = imageUrl.slice(insertAt);
+  const background = `b_rgb:${backgroundColor.replace('#', '')}`;
+
+  if (!maskable) {
+    return `${prefix}w_${size},h_${size},c_fill,g_auto,f_png/${path}`;
+  }
+
+  const safeZoneSize = Math.round(size * MASKABLE_SAFE_ZONE_RATIO);
+  return `${prefix}w_${safeZoneSize},h_${safeZoneSize},c_pad,${background}/w_${size},h_${size},c_pad,${background}/f_png/${path}`;
+}
+
 // Cloudinary's default unsigned-upload cap. If the account's plan allows
 // larger unsigned uploads this can be raised, but the preset itself would
 // reject anything over its own configured limit regardless of this check.

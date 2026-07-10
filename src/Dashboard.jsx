@@ -32,6 +32,7 @@ import { auth, db } from './firebase';
 import { createStoreSlug, getPublicStoreBaseUrl, getStoreUrl, validateStoreSlugFormat } from './storeLinks';
 import { getWhatsAppOrderHref } from './storefront/storefrontUtils';
 import { buildPublicStorePayload } from './publicStore';
+import { applyDashboardManifest, resetAppManifest } from './pwaManifest';
 import { getProductImages, getProductCoverImage, MAX_PRODUCT_IMAGES } from './productImages';
 import SellerPayoutPanel from './SellerPayoutPanel';
 import BillingPanel from './BillingPanel';
@@ -2839,6 +2840,13 @@ export default function Dashboard({ user, userProfile, onLogout }) {
   const [ordersError, setOrdersError] = useState('');
   const [tourOpen, setTourOpen] = useState(false);
   const [logisticsCompanies, setLogisticsCompanies] = useState([]);
+
+  // Installing the dashboard from the home screen should open straight into
+  // it, not the generic Blorbify landing page.
+  useEffect(() => {
+    applyDashboardManifest();
+    return () => resetAppManifest();
+  }, []);
 
   useEffect(() => {
     if (!user?.uid) {
