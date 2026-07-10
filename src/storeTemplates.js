@@ -89,7 +89,33 @@ export const novaTemplate = {
   layout: 'nova',
 };
 
-export const storeTemplates = [signatureTemplate, noirTemplate, bloomTemplate, kitchenTemplate, atelierTemplate, voltTemplate, novaTemplate];
+export const boutiqueTemplate = {
+  id: 'boutique',
+  name: 'Boutique',
+  description: 'An elegant, editorial storefront with soft neutrals and serif type — for clothing boutiques and apparel brands.',
+  accent: '#B08463',
+  surface: '#FAF6F1',
+  ink: '#2A2320',
+  card: '#FFFFFF',
+  button: '#2A2320',
+  buttonText: '#FAF6F1',
+  layout: 'boutique',
+};
+
+export const runwayTemplate = {
+  id: 'runway',
+  name: 'Runway',
+  description: 'A bold, editorial fashion storefront with oversized type and runway-show energy — for clothing brands that want to make a statement.',
+  accent: '#E10600',
+  surface: '#FFFFFF',
+  ink: '#0A0A0A',
+  card: '#FFFFFF',
+  button: '#0A0A0A',
+  buttonText: '#FFFFFF',
+  layout: 'runway',
+};
+
+export const storeTemplates = [signatureTemplate, noirTemplate, bloomTemplate, kitchenTemplate, atelierTemplate, voltTemplate, novaTemplate, boutiqueTemplate, runwayTemplate];
 
 export const colorPresets = [
   '#AFFF00',

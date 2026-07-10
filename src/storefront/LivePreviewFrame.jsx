@@ -6,6 +6,10 @@ import NoirTemplate from './NoirTemplate';
 import BloomTemplate from './BloomTemplate';
 import KitchenTemplate from './KitchenTemplate';
 import AtelierTemplate from './AtelierTemplate';
+import VoltTemplate from './VoltTemplate';
+import NovaTemplate from './NovaTemplate';
+import BoutiqueTemplate from './BoutiqueTemplate';
+import RunwayTemplate from './RunwayTemplate';
 
 const templateComponents = {
   signature: SignatureTemplate,
@@ -13,6 +17,10 @@ const templateComponents = {
   bloom: BloomTemplate,
   kitchen: KitchenTemplate,
   atelier: AtelierTemplate,
+  volt: VoltTemplate,
+  nova: NovaTemplate,
+  boutique: BoutiqueTemplate,
+  runway: RunwayTemplate,
 };
 
 const noop = () => {};

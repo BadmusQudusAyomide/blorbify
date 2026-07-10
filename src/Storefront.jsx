@@ -10,6 +10,7 @@ import { useToasts } from './storefront/useToasts';
 import { formatCurrency, getSocialHref, getBusinessTypeLabel, getWhatsAppOrderHref } from './storefront/storefrontUtils';
 import { getStoredReferral, storeReferral } from './storefront/referralTracking';
 import { getBackendOrigin, initializeSellerOrderPayment, verifySellerOrderPayment } from './backendApi';
+import { applyStoreManifest, resetAppManifest } from './pwaManifest';
 import SignatureTemplate from './storefront/SignatureTemplate';
 import NoirTemplate from './storefront/NoirTemplate';
 import BloomTemplate from './storefront/BloomTemplate';
@@ -17,6 +18,8 @@ import KitchenTemplate from './storefront/KitchenTemplate';
 import AtelierTemplate from './storefront/AtelierTemplate';
 import VoltTemplate from './storefront/VoltTemplate';
 import NovaTemplate from './storefront/NovaTemplate';
+import BoutiqueTemplate from './storefront/BoutiqueTemplate';
+import RunwayTemplate from './storefront/RunwayTemplate';
 
 const addToCartPhrases = [
   (name) => `${name} added to your bag`,
@@ -32,6 +35,8 @@ const templateComponents = {
   atelier: AtelierTemplate,
   volt: VoltTemplate,
   nova: NovaTemplate,
+  boutique: BoutiqueTemplate,
+  runway: RunwayTemplate,
 };
 
 function redirectTo(url) {
@@ -150,6 +155,15 @@ export default function Storefront({ slug }) {
   const template = useMemo(() => getStoreTemplate(store?.template), [store?.template]);
   const theme = useMemo(() => getTemplateTheme(store?.template, store || {}), [store]);
   const accentTextColor = useMemo(() => getReadableTextColor(theme.primaryColor, theme.textColor), [theme]);
+
+  // Installing this store from the home screen should use its own name/logo/color,
+  // not the generic Blorbify app — applies to every template, since they all
+  // render through this same component.
+  useEffect(() => {
+    if (!store) return undefined;
+    applyStoreManifest(store, theme, slug);
+    return () => resetAppManifest();
+  }, [store, theme, slug]);
   const copy = useMemo(() => getStoreCopy(store || {}), [store]);
   const socialLinks = useMemo(() => getStoreSocialLinks(store || {}), [store]);
   const visibleSocialLinks = Object.entries(socialLinks)

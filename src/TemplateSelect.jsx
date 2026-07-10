@@ -104,6 +104,13 @@ export default function Step2_TemplateSelect({ formData, updateFormData, onNext,
         .preview-nova .swatch { width: 34px; height: 34px; border-radius: 8px; background: var(--tc-ink); }
         .preview-nova .line-lg { border-radius: 4px; height: 11px; }
         .preview-nova .line-sm { border-radius: 4px; background: var(--tc-accent); height: 7px; width: 35%; }
+        .preview-boutique { justify-items: center; text-align: center; background: color-mix(in srgb, var(--tc-accent) 8%, var(--tc-surface)); }
+        .preview-boutique .swatch { width: 44px; height: 56px; border-radius: 0; background: color-mix(in srgb, var(--tc-accent) 35%, var(--tc-surface)); }
+        .preview-boutique .line-lg, .preview-boutique .line-sm { justify-self: center; border-radius: 0; }
+        .preview-runway { border: 2px solid var(--tc-ink); box-sizing: border-box; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .preview-runway .swatch { grid-row: 1 / 4; width: auto; height: auto; border-radius: 0; background: var(--tc-ink); }
+        .preview-runway .line-lg { border-radius: 0; text-transform: uppercase; }
+        .preview-runway .line-sm { border-radius: 0; background: var(--tc-accent); height: 7px; width: 45%; }
         .template-info { padding: 13px 15px; }
         .template-info h4 { font-size: 15px; font-weight: 800; color: var(--ink); margin: 0 0 4px; }
         .template-info p { font-size: 12.5px; color: var(--slate-dark); line-height: 1.45; margin: 0; }

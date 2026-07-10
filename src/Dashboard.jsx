@@ -3665,6 +3665,43 @@ export default function Dashboard({ user, userProfile, onLogout }) {
         .template-swatch.preview-atelier em {
           border-radius: 2px;
         }
+        .template-swatch.preview-boutique {
+          justify-items: center;
+          text-align: center;
+          background: color-mix(in srgb, var(--preview-accent) 8%, var(--preview-surface));
+        }
+        .template-swatch.preview-boutique i {
+          width: 34px;
+          height: 44px;
+          border-radius: 0;
+          background: color-mix(in srgb, var(--preview-accent) 35%, var(--preview-surface));
+        }
+        .template-swatch.preview-boutique b,
+        .template-swatch.preview-boutique em {
+          justify-self: center;
+          border-radius: 0;
+        }
+        .template-swatch.preview-runway {
+          border: 2px solid var(--preview-ink);
+          box-sizing: border-box;
+          grid-template-columns: 1fr 1fr;
+          gap: 6px;
+        }
+        .template-swatch.preview-runway i {
+          grid-row: 1 / 4;
+          width: auto;
+          height: auto;
+          border-radius: 0;
+          background: var(--preview-ink);
+        }
+        .template-swatch.preview-runway b {
+          border-radius: 0;
+        }
+        .template-swatch.preview-runway em {
+          border-radius: 0;
+          background: var(--preview-accent);
+          height: 7px;
+        }
         .color-choice-grid {
           display: flex;
           align-items: center;
