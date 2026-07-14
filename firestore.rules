@@ -31,7 +31,7 @@ service cloud.firestore {
       allow create: if isOwner(userId);
       allow update: if isOwner(userId)
         && (
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['products'])
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['products', 'vendors'])
           || hasActiveSubscription(userId)
         );
       allow delete: if isOwner(userId);
@@ -46,12 +46,15 @@ service cloud.firestore {
       allow read: if resource == null || resource.data.published == true || isOwner(resource.data.ownerId);
       allow create: if isSignedIn()
         && request.resource.data.ownerId == request.auth.uid
-        && (request.resource.data.products.size() == 0 || hasActiveSubscription(request.auth.uid));
+        && (
+          (request.resource.data.products.size() == 0 && request.resource.data.get('vendors', []).size() == 0)
+          || hasActiveSubscription(request.auth.uid)
+        );
       allow update: if isSignedIn()
         && request.resource.data.ownerId == request.auth.uid
         && (!resource.data.keys().hasAny(['ownerId']) || resource.data.ownerId == request.auth.uid)
         && (
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['products'])
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['products', 'vendors'])
           || hasActiveSubscription(request.auth.uid)
         );
       allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;

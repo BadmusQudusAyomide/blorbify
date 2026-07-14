@@ -115,7 +115,20 @@ export const runwayTemplate = {
   layout: 'runway',
 };
 
-export const storeTemplates = [signatureTemplate, noirTemplate, bloomTemplate, kitchenTemplate, atelierTemplate, voltTemplate, novaTemplate, boutiqueTemplate, runwayTemplate];
+export const campusRunsTemplate = {
+  id: 'campus-runs',
+  name: 'Campus Runs Logistics',
+  description: 'A multi-vendor campus delivery hub — browse vendor stalls and order straight to WhatsApp. Built for campus errand and delivery services.',
+  accent: '#FF7A00',
+  surface: '#101820',
+  ink: '#F5F1E8',
+  card: '#182330',
+  button: '#FF7A00',
+  buttonText: '#101820',
+  layout: 'campus-runs',
+};
+
+export const storeTemplates = [signatureTemplate, noirTemplate, bloomTemplate, kitchenTemplate, atelierTemplate, voltTemplate, novaTemplate, boutiqueTemplate, runwayTemplate, campusRunsTemplate];
 
 export const colorPresets = [
   '#AFFF00',

@@ -111,6 +111,25 @@ export default function Step2_TemplateSelect({ formData, updateFormData, onNext,
         .preview-runway .swatch { grid-row: 1 / 4; width: auto; height: auto; border-radius: 0; background: var(--tc-ink); }
         .preview-runway .line-lg { border-radius: 0; text-transform: uppercase; }
         .preview-runway .line-sm { border-radius: 0; background: var(--tc-accent); height: 7px; width: 45%; }
+        .preview-campus-runs {
+          background: radial-gradient(circle, color-mix(in srgb, var(--tc-accent) 18%, transparent) 1px, var(--tc-ink) 1px) 0 0/12px 12px, var(--tc-ink);
+          grid-template-rows: auto auto auto;
+          align-content: center;
+          gap: 8px;
+          position: relative;
+        }
+        .preview-campus-runs::before {
+          content: '';
+          position: absolute;
+          left: 24px;
+          top: 12px;
+          bottom: 12px;
+          width: 2px;
+          background: repeating-linear-gradient(to bottom, var(--tc-accent) 0 4px, transparent 4px 8px);
+        }
+        .preview-campus-runs .swatch { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--tc-accent); background: color-mix(in srgb, var(--tc-accent) 35%, var(--tc-ink)); }
+        .preview-campus-runs .line-lg { border-radius: 4px; background: var(--tc-surface); height: 10px; }
+        .preview-campus-runs .line-sm { border-radius: 4px; background: var(--tc-accent); height: 7px; width: 40%; }
         .template-info { padding: 13px 15px; }
         .template-info h4 { font-size: 15px; font-weight: 800; color: var(--ink); margin: 0 0 4px; }
         .template-info p { font-size: 12.5px; color: var(--slate-dark); line-height: 1.45; margin: 0; }

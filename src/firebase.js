@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAnalytics } from 'firebase/analytics';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentSingleTabManager } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyC9xt2TclymW1iUXInOmJQ4by_IR9sarZY',
@@ -16,6 +16,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
 const auth = getAuth(app);
-const db = getFirestore(app);
+// Persists reads to IndexedDB so a shopper who already loaded a store/vendor
+// once can browse it again offline — the storefront only ever does one-shot
+// getDoc() reads, so this cache is what makes those replayable without a
+// network connection.
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }),
+});
 
 export { app, analytics, auth, db };

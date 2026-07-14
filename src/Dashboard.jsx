@@ -32,8 +32,11 @@ import { auth, db } from './firebase';
 import { createStoreSlug, getPublicStoreBaseUrl, getStoreUrl, validateStoreSlugFormat } from './storeLinks';
 import { getWhatsAppOrderHref } from './storefront/storefrontUtils';
 import { buildPublicStorePayload } from './publicStore';
+import { buildCampusPublicStorePayload } from './campusPublicStore';
 import { applyDashboardManifest, resetAppManifest } from './pwaManifest';
 import { getProductImages, getProductCoverImage, MAX_PRODUCT_IMAGES } from './productImages';
+import VendorManager from './VendorManager';
+import DeliveryLocationsManager from './DeliveryLocationsManager';
 import SellerPayoutPanel from './SellerPayoutPanel';
 import BillingPanel from './BillingPanel';
 import InvoicesPanel from './InvoicesPanel';
@@ -736,11 +739,17 @@ function getProductKey(product, index) {
   return product.id || product.imagePublicId || product.imageUrl || `${product.name || 'product'}-${index}`;
 }
 
+function buildPayloadForTemplate(storeInfo, userId) {
+  return storeInfo.template === 'campus-runs'
+    ? buildCampusPublicStorePayload(storeInfo, userId)
+    : buildPublicStorePayload(storeInfo, userId);
+}
+
 async function publishPublicStore(storeInfo, userId) {
   const storeSlug = createStoreSlug(storeInfo.storeSlug || storeInfo.businessName || 'your-store');
 
   await setDoc(doc(db, 'publicStores', storeSlug), {
-    ...buildPublicStorePayload({ ...storeInfo, storeSlug }, userId),
+    ...buildPayloadForTemplate({ ...storeInfo, storeSlug }, userId),
     updatedAt: serverTimestamp(),
   }, { merge: true });
 }
@@ -757,7 +766,7 @@ async function renameStorePublicDoc({ userId, storeInfo, oldSlug, newSlug }) {
   }
 
   await setDoc(targetRef, {
-    ...buildPublicStorePayload({ ...storeInfo, storeSlug: newSlug }, userId),
+    ...buildPayloadForTemplate({ ...storeInfo, storeSlug: newSlug }, userId),
     updatedAt: serverTimestamp(),
   });
 
@@ -2992,6 +3001,9 @@ export default function Dashboard({ user, userProfile, onLogout }) {
   const storeSlug = storeInfo.storeSlug || profile?.storeSlug || 'your-store';
   const storeUrl = getStoreUrl(storeSlug);
   const products = Array.isArray(storeInfo.products) ? storeInfo.products.filter((product) => product?.name) : [];
+  const isCampusRunsTemplate = storeInfo.template === 'campus-runs';
+  const vendors = Array.isArray(storeInfo.vendors) ? storeInfo.vendors : [];
+  const deliveryLocations = Array.isArray(storeInfo.deliveryLocations) ? storeInfo.deliveryLocations : [];
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: IconDashboard },
@@ -4706,7 +4718,29 @@ export default function Dashboard({ user, userProfile, onLogout }) {
             <AnalyticsPanel orders={analyticsOrders} products={products} formatCurrency={formatCurrency} />
           )}
 
-          {activeTab === 'products' && (
+          {activeTab === 'products' && isCampusRunsTemplate && (
+            <div className="content-card full-span" data-tour="products-card">
+              <div className="card-header">
+                <h3>Vendors &amp; Products</h3>
+              </div>
+              <VendorManager
+                userId={user.uid}
+                storeInfo={storeInfo}
+                vendors={vendors}
+                onVendorsSaved={(nextVendors) => setStore((current) => ({ ...(current || storeInfo), vendors: nextVendors }))}
+              />
+              <div style={{ marginTop: 24 }}>
+                <DeliveryLocationsManager
+                  userId={user.uid}
+                  storeInfo={storeInfo}
+                  deliveryLocations={deliveryLocations}
+                  onDeliveryLocationsSaved={(nextLocations) => setStore((current) => ({ ...(current || storeInfo), deliveryLocations: nextLocations }))}
+                />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'products' && !isCampusRunsTemplate && (
             <div className="content-card full-span" data-tour="products-card">
               <div className="card-header">
                 <h3>Add Products</h3>

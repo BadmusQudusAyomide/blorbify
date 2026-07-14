@@ -20,6 +20,7 @@ import VoltTemplate from './storefront/VoltTemplate';
 import NovaTemplate from './storefront/NovaTemplate';
 import BoutiqueTemplate from './storefront/BoutiqueTemplate';
 import RunwayTemplate from './storefront/RunwayTemplate';
+import CampusRunsTemplate from './storefront/CampusRunsTemplate';
 
 const addToCartPhrases = [
   (name) => `${name} added to your bag`,
@@ -37,6 +38,7 @@ const templateComponents = {
   nova: NovaTemplate,
   boutique: BoutiqueTemplate,
   runway: RunwayTemplate,
+  'campus-runs': CampusRunsTemplate,
 };
 
 function redirectTo(url) {
@@ -537,6 +539,8 @@ export default function Storefront({ slug }) {
     visibleSocialLinks,
     footerText,
     products,
+    vendors: store?.vendors ?? [],
+    deliveryLocations: store?.deliveryLocations ?? [],
     filteredProducts,
     productCategories,
     activeCategory,
@@ -565,6 +569,7 @@ export default function Storefront({ slug }) {
     freeShippingThreshold,
     updateQuantity,
     removeItem,
+    clearCart,
     cartOpen,
     setCartOpen,
     closeCart,
@@ -585,6 +590,7 @@ export default function Storefront({ slug }) {
     handleNewsletterSubmit,
     toasts,
     dismiss,
+    notify,
   };
 
   return <TemplateComponent {...templateProps} />;

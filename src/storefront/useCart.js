@@ -57,6 +57,8 @@ export function useCart(slug, { onAdd, onRemove, onLimit } = {}) {
           type: product.type || 'physical',
           stock,
           quantity: nextQuantity,
+          vendorId: product.vendorId ?? null,
+          vendorName: product.vendorName ?? null,
         },
       ];
     });
