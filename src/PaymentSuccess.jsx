@@ -29,7 +29,10 @@ export default function PaymentSuccess() {
 
         if (['paid', 'success', 'completed', 'active'].includes(paymentStatus)) {
           setStatus('success');
-          setMessage('Your plan is now active. You can head back to your dashboard.');
+          setMessage('Your plan is now active. Taking you back to your dashboard…');
+          setTimeout(() => {
+            if (!cancelled) navigate('/dashboard', { replace: true });
+          }, 2000);
         } else {
           setStatus('pending');
           setMessage("We're still waiting for confirmation from Paystack. This can take a minute.");
